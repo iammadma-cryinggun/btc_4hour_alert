@@ -1,0 +1,21 @@
+# Zeabur部署配置文件
+version: 1
+
+services:
+  - name: btc-physics-v411
+    type: worker
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    env:
+      - name: TZ
+        value: Asia/Shanghai
+      - name: PYTHONUNBUFFERED
+        value: "1"
+    resources:
+      cpu: 0.5
+      memory: 512
+    volumes:
+      - path: /app/data
+        name: btc-physics-data
+    restart: true

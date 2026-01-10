@@ -1,0 +1,39 @@
+# Python缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 虚拟环境
+venv/
+ENV/
+env/
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+
+# 运行时生成的文件
+position_tracker_aligned_status.json
+battle_aligned_status.json
+basic_physics_signals.json
+trade_history.json
+signal_history.json
+
+# 临时文件
+*.tmp
+*.bak
+*.backup
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 输出文件
+output.log
+nohup.out
