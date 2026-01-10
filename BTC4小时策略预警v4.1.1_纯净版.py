@@ -193,8 +193,8 @@ class PhysicsSignalConfigV4_1:
                 # 如果连接成功，保持代理启用
             except Exception as e:
                 # 代理连接失败，自动禁用代理
-                print(f"⚠️ 代理连接失败: {e}")
-                print(f"🔄 自动禁用代理，使用直连")
+                print(f'⚠️ 代理连接失败: {e}')
+                print(f'🔄 自动禁用代理，使用直连')
                 self.proxy_enabled = False
                 self.is_cloud_env = True  # 标记为云端/无代理环境
 
@@ -2649,53 +2649,6 @@ class BattleSignalGenerator:
                 self.config.last_signal_price = current_price
                 self.config.last_signal_confidence = confidence
 
-                # 🎯 [V4.1.1] 推送基础物理信号（每4H，不过滤，用于复盘）
-                # 获取LS-Ratio和FR用于显示
-                ls_ratio = self.data_fetcher.get_latest_ls_ratio()
-                current_fr = self.data_fetcher.get_latest_fr()
-                current_oi = self.data_fetcher.get_latest_oi()
-                liquidation = self.data_fetcher.get_latest_liquidation()
-
-                ls_str = f"{ls_ratio:.2f}" if ls_ratio else "N/A"
-                fr_str = f"{current_fr*100:.2f}%" if current_fr else "N/A"
-                oi_str = f"${current_oi/1e6:.0f}M" if current_oi else "N/A"
-                liq_str = f"${liquidation/1e6:.2f}M" if liquidation else "N/A"
-
-                # 判断是否为奇点信号
-                is_singularity = regime_type in ['BEARISH_SINGULARITY', 'BULLISH_SINGULARITY']
-
-                # 构建基础信号通知
-                basic_details = {
-                    "📊 基础物理信号": "─",
-                    "检测时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "信号状态": regime_desc,
-                    "置信度": f"{confidence:.1%}",
-                    "BTC价格": f"${current_price:.2f}",
-
-                    "📈 物理参数": "─",
-                    "物理张力": f"{tension:.3f}",
-                    "加速度": f"{acceleration:.3f}",
-                    "DXY燃料": f"{dxy_fuel:.3f}",
-
-                    "💰 市场数据": "─",
-                    "多空比(LS)": ls_str,
-                    "资金费率(FR)": fr_str,
-                    "持仓量(OI)": oi_str,
-                    "清算量": liq_str,
-
-                    "ℹ️ 说明": "─",
-                    "说明1": "此为基础物理信号，每4H推送一次" if not is_singularity else "检测到奇点信号！",
-                    "说明2": "V4.1交易系统会过滤部分信号" if is_singularity else "当前无奇点信号，V4.1不交易",
-                }
-
-                signal_emoji = "🎯" if is_singularity else "📊"
-                self.notifier.send_alert(
-                    f"{signal_emoji} 4H基础信号",
-                    f"{regime_desc} (置信度{confidence:.1%})",
-                    basic_details,
-                    urgency="high" if is_singularity else "normal"
-                )
-
                 # 🎯 检查中继信号：如果出现中继信号，重置原始趋势信息
                 intermediate_signals = ['OSCILLATION', 'HIGH_OSCILLATION', 'LOW_OSCILLATION', 'TRANSITION_UP', 'TRANSITION_DOWN']
                 if regime_type in intermediate_signals and self.config.original_regime is not None:
@@ -3015,19 +2968,6 @@ class TelegramCommandHandler:
         # 上次更新ID（用于获取新消息）
         self.last_update_id = 0
 
-        # 加载V4.0监控历史数据
-        try:
-            import os
-            csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'btc_daily_ohlcv_2years.csv')
-            self.v4_df = pd.read_csv(csv_path)
-            self.v4_df.columns = self.v4_df.columns.str.strip()
-            self.v4_df['日期'] = pd.to_datetime(self.v4_df['日期'])
-            self.v4_df = self.v4_df.sort_values('日期').reset_index(drop=True)
-            print(f"✅ V4.0监控数据加载完成: {len(self.v4_df)} 天")
-        except Exception as e:
-            print(f"⚠️ V4.0监控数据加载失败: {e}")
-            self.v4_df = None
-
         # 支持的命令
         self.commands = {
             "/start": self.cmd_start,
@@ -3035,9 +2975,6 @@ class TelegramCommandHandler:
             "/status": self.cmd_status,
             "/close": self.cmd_close,
             "/clear": self.cmd_clear,
-            "/1d": self.cmd_1d,
-            "/1h": self.cmd_1h,
-            "/4h": self.cmd_4h,
             "我已平仓": self.cmd_close,
         }
 
@@ -3387,129 +3324,6 @@ class TelegramCommandHandler:
             self.send_message(f"❌ 清除失败: {e}")
 
     # ==================== V4.0 日线监控命令 ====================
-
-    def cmd_1d(self):
-        """日线监控报告"""
-        if self.v4_df is None:
-            self.send_message("❌ V4.0监控数据未加载，请检查btc_daily_ohlcv_2years.csv文件")
-            return
-
-        try:
-            # 获取实时数据
-            result = self.v4_get_realtime_data()
-            if not result:
-                self.send_message("❌ 无法获取实时数据")
-                return
-
-            # 计算诊断
-            diagnosis = self.v4_calculate_diagnosis(result)
-
-            # 格式化报告
-            report = self.v4_format_diagnosis_report(diagnosis, "日线")
-            self.send_message(report)
-
-            # 记录日志
-            self.v4_log_query("1d", diagnosis)
-
-        except Exception as e:
-            self.send_message(f"❌ 日线诊断失败: {str(e)}")
-            logger.error(f"V4.0日线诊断错误: {e}")
-
-    def cmd_1h(self, args):
-        """1H分析命令"""
-        if self.v4_df is None:
-            self.send_message("❌ V4.0监控数据未加载")
-            return
-
-        if len(args) < 2:
-            self.send_message("❌ 参数错误\n\n格式: /1h [价格] [成交量]\n示例: /1h 91716 1258.06")
-            return
-
-        try:
-            price = float(args[0])
-            volume = float(args[1])
-
-            # 使用历史最新LS、OI、Liq
-            latest_ls = self.v4_df['多空比(LS)'].dropna().tail(1).iloc[0]
-            latest_oi = self.v4_df['持仓量(OI-百万)'].dropna().tail(1).iloc[0]
-            latest_liq = self.v4_df['清算量(美元)'].dropna().tail(1).iloc[0]
-
-            # 构建数据
-            result = {
-                'price': price,
-                'volume': volume,
-                'ls': latest_ls,
-                'oi': latest_oi,
-                'liq': latest_liq,
-                'source': '1H手动输入'
-            }
-
-            # 计算诊断
-            diagnosis = self.v4_calculate_diagnosis(result)
-
-            # 格式化报告
-            report = self.v4_format_diagnosis_report(diagnosis, "1小时")
-            self.send_message(report)
-
-            # 记录日志
-            self.v4_log_query("1h", diagnosis)
-
-        except ValueError:
-            self.send_message("❌ 价格和成交量必须是数字")
-        except Exception as e:
-            self.send_message(f"❌ 1H分析失败: {str(e)}")
-            logger.error(f"V4.0 1H分析错误: {e}")
-
-    def cmd_4h(self, args):
-        """4H分析命令"""
-        if self.v4_df is None:
-            self.send_message("❌ V4.0监控数据未加载")
-            return
-
-        if len(args) < 2:
-            self.send_message("❌ 参数错误\n\n格式: /4h [价格] [成交量]\n示例: /4h 92000 15000")
-            return
-
-        try:
-            price = float(args[0])
-            volume = float(args[1])
-
-            # 4H成交量需要乘以6来估算日成交量
-            estimated_daily_volume = volume * 6
-
-            # 使用历史最新LS、OI、Liq
-            latest_ls = self.v4_df['多空比(LS)'].dropna().tail(1).iloc[0]
-            latest_oi = self.v4_df['持仓量(OI-百万)'].dropna().tail(1).iloc[0]
-            latest_liq = self.v4_df['清算量(美元)'].dropna().tail(1).iloc[0]
-
-            # 构建数据
-            result = {
-                'price': price,
-                'volume': estimated_daily_volume,
-                'ls': latest_ls,
-                'oi': latest_oi,
-                'liq': latest_liq,
-                'source': '4H手动输入'
-            }
-
-            # 计算诊断
-            diagnosis = self.v4_calculate_diagnosis(result)
-
-            # 格式化报告
-            report = self.v4_format_diagnosis_report(diagnosis, "4小时")
-            self.send_message(report)
-
-            # 记录日志
-            self.v4_log_query("4h", diagnosis)
-
-        except ValueError:
-            self.send_message("❌ 价格和成交量必须是数字")
-        except Exception as e:
-            self.send_message(f"❌ 4H分析失败: {str(e)}")
-            logger.error(f"V4.0 4H分析错误: {e}")
-
-    def v4_get_realtime_data(self):
-        """获取实时数据"""
         from datetime import datetime, timedelta
         result = {}
 
@@ -3775,8 +3589,7 @@ def main():
     config = PhysicsSignalConfigV4_1()
 
     print("\n📋 系统配置 (V4.1 Smart Ape):")
-    print(f"   运行环境: {'☁️ 云端环境' if config.is_cloud_env else '🖥️ 本地环境'}")
-    print(f"   代理启用: {'是' if config.proxy_enabled else '否(云端自动禁用)'}")
+    print(f"   代理启用: {'是' if config.proxy_enabled else '否'}")
     print(f"   交易对: {config.binance_symbol}")
     print(f"   物理参数: 张力阈值{config.TENSION_THRESHOLD}, 加速度阈值{config.ACCEL_THRESHOLD}")
     print(f"   止盈止损: 止损{config.sl_pct}%, TP1:{config.tp1_pct}%, TP2:{config.tp2_pct}%")
