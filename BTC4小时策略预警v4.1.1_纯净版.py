@@ -3011,30 +3011,39 @@ def main():
     # 调度函数
     def scheduled_normal_check():
         """普通模式检查"""
-        if not config.battle_mode and not config.has_position:
-            battle_generator.run_normal_check()
+        try:
+            if not config.battle_mode and not config.has_position:
+                battle_generator.run_normal_check()
+        except Exception as e:
+            logger.error(f"[普通检查] 错误: {e}")
     def scheduled_battle_check():
         """战备模式检查"""
-        if config.battle_mode:
-            battle_generator.run_battle_check()
+        try:
+            if config.battle_mode:
+                battle_generator.run_battle_check()
+        except Exception as e:
+            logger.error(f"[战备检查] 错误: {e}")
     def scheduled_position_check():
         """仓位监控检查"""
-        if config.has_position:
-            btc_15m_data = data_fetcher.fetch_btc_data(interval='15m', limit=2)
-            current_price = data_fetcher.get_current_btc_price()
-            if current_price and btc_15m_data is not None and len(btc_15m_data) >= 2:
-                latest_candle = btc_15m_data.iloc[-1]
-                current_high = latest_candle['high']
-                current_low = latest_candle['low']
-                should_exit, exit_reason, exit_price = position_tracker.check_position(current_price, current_high, current_low)
-                if should_exit and exit_price > 0:
-                    position_tracker.close_position(exit_price, exit_reason)
-                # 🎯 V4.1人机结合版：移除自动EMA21加仓，改为Telegram手动加仓
-                # else:
-                #     if not config.add_position_taken:
-                #         current_ema = latest_candle['ema21']
-                #         if position_tracker.check_add_position(current_price, current_ema):
-                #             position_tracker.execute_add_position(current_price, current_ema)
+        try:
+            if config.has_position:
+                btc_15m_data = data_fetcher.fetch_btc_data(interval='15m', limit=2)
+                current_price = data_fetcher.get_current_btc_price()
+                if current_price and btc_15m_data is not None and len(btc_15m_data) >= 2:
+                    latest_candle = btc_15m_data.iloc[-1]
+                    current_high = latest_candle['high']
+                    current_low = latest_candle['low']
+                    should_exit, exit_reason, exit_price = position_tracker.check_position(current_price, current_high, current_low)
+                    if should_exit and exit_price > 0:
+                        position_tracker.close_position(exit_price, exit_reason)
+                    # 🎯 V4.1人机结合版：移除自动EMA21加仓，改为Telegram手动加仓
+                    # else:
+                    #     if not config.add_position_taken:
+                    #         current_ema = latest_candle['ema21']
+                    #         if position_tracker.check_add_position(current_price, current_ema):
+                    #             position_tracker.execute_add_position(current_price, current_ema)
+        except Exception as e:
+            logger.error(f"[仓位监控] 错误: {e}")
     # 设置调度任务
     schedule.every(config.battle_check_interval).minutes.do(scheduled_battle_check)
     schedule.every(config.position_check_interval).minutes.do(scheduled_position_check)
@@ -3057,14 +3066,26 @@ def main():
     print("="*80)
     # 🎯 启动时立即执行一次风险评估
     print(f"\n🔍 正在执行启动时风险评估...")
-    scheduled_risk_check()
-    print(f"✅ 风险评估完成")
+    try:
+        scheduled_risk_check()
+        print(f"✅ 风险评估完成")
+    except Exception as e:
+        print(f"⚠️ 风险评估失败: {e}")
+        logger.error(f"启动时风险评估失败: {e}")
     # 启动时立即执行一次物理诊断
     print(f"\n🔍 正在执行启动时物理诊断...")
-    scheduled_normal_check()
-    print(f"✅ 物理诊断完成")
+    try:
+        scheduled_normal_check()
+        print(f"✅ 物理诊断完成")
+    except Exception as e:
+        print(f"⚠️ 物理诊断失败: {e}")
+        logger.error(f"启动时物理诊断失败: {e}")
     # 立即执行一次仓位检查
-    scheduled_position_check()
+    try:
+        scheduled_position_check()
+    except Exception as e:
+        print(f"⚠️ 仓位检查失败: {e}")
+        logger.error(f"启动时仓位检查失败: {e}")
     # 计算并显示倒计时
     now = datetime.now().strftime("%H:%M:%S")
     print(f"ℹ️  当前时间 {now}，系统已进入潜伏状态")
