@@ -2876,37 +2876,36 @@ def main():
     status_msg = "有仓位，正在跟踪" if config.has_position else "无仓位，等待信号"
     test_details = {
         "🔧 系统启动": "─",
-        "系统版本": "V3.1 完整版 - 三维风控 + V2全功能",
+        "系统版本": "V4.1.1 双信号版 - Smart Ape + 基础4H信号",
         "启动时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "当前状态": status_msg,
         "交易对": config.binance_symbol,
         "时间框架": "4H信号 + 15M入场",
         "策略类型": "物理奇点反向交易",
+        "📊 双信号系统": "─",
+        "基础物理信号": "每4H推送 (复盘用)",
+        "V4.1交易信号": "SKIP过滤 + Smart Ape",
         "🎯 核心功能": "─",
         "物理诊断": "启用 (与回测一致)",
         "EMA入场": "启用 (15分钟EMA21)",
-        "加仓机制": "启用 (EMA21回踩)",
-        "止盈止损": "多级止盈 + 追踪止损",
-        "混合策略": "启用 (新止损+旧止盈)",
-        "滑点模型": "动态滑点计算",
-        "🛡️ 三维风控 (V3.1)": "─",
-        "OI监控": "实时获取Coinalyze OI",
-        "FR监控": "实时获取资金费率",
-        "FR_CV": "资金费率变异系数",
-        "动态仓位": "0%/25%/50%/75%/100%五级",
-        "极端规避": "自动识别并规避",
+        "手动加仓": "启用 (Telegram命令)",
+        "止盈止损": "Smart Ape动态管理",
+        "💎 Smart Ape": "─",
+        "SKIP过滤": "LS>3.5或FR<-2%",
+        "黄金阈值": "空单LS<2.0跳过",
+        "逻辑失效止损": "LS变化±0.5 + OI下降10%",
+        "爆仓潮止盈": "清算量>95分位",
         "💬 Telegram交互": "─",
         "交互命令": "已启用",
-        "可用命令": "/help /status /close /clear",
+        "可用命令": "/help /status /close /clear /addposition",
         "快捷平仓": '发送"我已平仓"',
         "📊 监控设置": "─",
-        "普通检查": f"每{config.normal_check_interval}分钟",
+        "基础信号": "每4H (00:00, 04:00, 08:00, 12:00, 16:00, 20:00)",
         "战备检查": f"每{config.battle_check_interval}分钟",
         "仓位监控": f"每{config.position_check_interval}分钟",
-        "风险评估": f"每{config.risk_check_interval}分钟",
-        "战备时长": f"{config.battle_duration_hours}小时"
+        "风险评估": f"每{config.risk_check_interval}分钟"
     }
-    notifier.send_alert("🧪 系统启动成功", "V3.1完整版已启动", test_details, urgency="normal")
+    notifier.send_alert("🧪 系统启动成功", "V4.1.1双信号版已启动", test_details, urgency="normal")
     # 🎯 V3.1新增：风险评估任务
     def scheduled_risk_check():
         """风险评估检查 - 每小时执行"""
