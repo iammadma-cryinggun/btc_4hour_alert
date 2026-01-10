@@ -1045,7 +1045,7 @@ class EnhancedMessageNotifier:
         """构建详细消息格式"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         lines = [
-            f"🎯【物理奇点预警 V3.1 - {alert_type}】",
+            f"🎯【物理奇点预警 V4.1.1 - {alert_type}】",
             f"⏰ 时间: {timestamp}",
             f"📊 交易对: {self.config.binance_symbol}",
             "─" * 40,
@@ -1060,10 +1060,10 @@ class EnhancedMessageNotifier:
                     lines.append(f"  {key}: {value}")
         lines.extend([
             "─" * 40,
-            "🧠 系统: V3.1三维风控 + V2完整功能",
+            "🧠 系统: V4.1.1 双信号版",
             "📈 时间框架: 4H信号 + 15M入场",
-            "🎯 策略: 反向交易 + EMA21加仓 + 动态仓位",
-            "🛡️ 风控: OI + FR + FR_CV三维评估",
+            "🎯 策略: Smart Ape动态风险管理",
+            "🛡️ 风控: SKIP过滤 + 黄金阈值 + 逻辑失效止损",
             "=" * 50
         ])
         return "\n".join(lines)
@@ -1094,7 +1094,7 @@ class EnhancedMessageNotifier:
         try:
             full_message = self._build_message(alert_type, message, details)
             payload = {
-                'title': f"物理奇点预警 V3.1 - {alert_type}",
+                'title': f"物理奇点预警 V4.1.1 - {alert_type}",
                 'desp': full_message
             }
             response = self.session.post(self.wechat_url, data=payload, timeout=10)
@@ -1141,7 +1141,7 @@ class EnhancedMessageNotifier:
 💡 说明: Smart Ape动态风险管理检测到散户已割肉跑路，
    逻辑失效，比固定止损更早触发，避免更大亏损。
 🧠 系统: V4.1 Smart Ape Edition
-📊 版本: V3.1完整功能 + Smart Ape动态风险管理
+📊 版本: V4.1.1 双信号版 - Smart Ape + 基础4H信号
 """
         # 发送到Telegram
         self.send_telegram(message)
@@ -1170,7 +1170,7 @@ class EnhancedMessageNotifier:
 💡 说明: Smart Ape检测到爆仓高潮（清算量>95分位），
    在情绪最高点离场，避免爆仓潮后的反弹回撤。
 🧠 系统: V4.1 Smart Ape Edition
-📊 版本: V3.1完整功能 + Smart Ape动态风险管理
+📊 版本: V4.1.1 双信号版 - Smart Ape + 基础4H信号
 """
         # 发送到Telegram
         self.send_telegram(message)
@@ -3050,7 +3050,7 @@ def main():
     print(f"\n✅ 系统已启动！")
     print(f"   仓位监控: 每{config.position_check_interval}分钟")
     print(f"   战备检查: 每{config.battle_check_interval}分钟")
-    print(f"   风险评估: 每{config.risk_check_interval}分钟 (V3.1新增)")
+    print(f"   风险评估: 每{config.risk_check_interval}分钟")
     print(f"   基础物理信号: 每4H记录 (V4.1.1新增，复盘用)")
     print(f"   普通检查: 严格对齐 4H 收盘整点")
     print(f"   按 Ctrl+C 停止系统")
@@ -3083,9 +3083,9 @@ def main():
             "战备模式": "激活" if config.battle_mode else "未激活",
             "风险等级": config.current_risk_level,
             "仓位乘数": f"{config.position_multiplier:.2f}",
-            "最终状态": "V3.1预警系统已安全停止"
+            "最终状态": "V4.1.1双信号版已安全停止"
         }
-        notifier.send_alert("🛑 系统停止", "V3.1预警系统已停止", stop_details, urgency="normal")
+        notifier.send_alert("🛑 系统停止", "V4.1.1双信号版已停止", stop_details, urgency="normal")
         print("✅ 系统已安全停止")
         print("="*80)
 if __name__ == "__main__":
