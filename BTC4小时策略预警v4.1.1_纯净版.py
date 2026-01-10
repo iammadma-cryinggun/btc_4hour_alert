@@ -1,25 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-🎮 物理奇点实时预警系统 V4.1 Smart Ape Edition
-🚀 基于V3.1完整功能 + Smart Ape动态风险管理
+🎮 物理奇点实时预警系统 V4.1.1 双信号版
+🚀 基于V4.1完整功能 + 基础物理信号4H记录
 📊 核心特性：
-   - 完整仓位追踪（V3.1的PositionTracker）
-   - EMA21入场机制（V3.1的战备模式）
-   - Telegram交互控制（V3.1的命令处理 + V4.1手动加仓）
-   - Smart Ape动态风险管理（黄金阈值 + 逻辑失效止损 + 爆仓潮止盈）
-💡 仓位配置（V4.1人机结合版）：
-   - 基础仓位：30% = 首次15% + 手动加仓15%
-   - Smart Ape黄金阈值：空单LS<2.0跳过（+4.5%收益）
-   - 逻辑失效止损：LS变化±0.5 + OI下降-10%
-   - 爆仓潮止盈：清算量>95分位（$7,020,640）
-   - 回测收益：+803% (2年，Smart Ape版)
-🎯 V4.1 Smart Ape升级亮点：
-   ⭐ 黄金阈值过滤（空单LS<2.0跳过低胜率交易）
-   ⭐ 逻辑失效止损（市场逻辑变化时及时退出）
-   ⭐ 爆仓潮止盈（极端行情锁定利润）
-   ⭐ 人机结合（首次自动15% + Telegram手动加仓15%）
-   ⭐ 收益率提升4.5% (768% → 803%)
-   ⭐ 完全移除无效的方案A2系统
+   - ✅ V4.1 Smart Ape完整交易系统（不变）
+   - ✅ 基础物理信号每4H计算并记录（新增，用于复盘）
+   - ✅ EMA21入场机制
+   - ✅ Smart Ape动态风险管理
+   - ✅ 黄金阈值 + 逻辑失效止损 + 爆仓潮止盈
+💡 双信号系统设计：
+   【基础物理信号】（验证4原始）：
+   - 每4小时计算一次物理奇点
+   - 纯记录，不参与交易
+   - 用于未来复盘分析
+   - 保存到: basic_physics_signals.json
+   【V4.1交易信号】（Smart Ape）：
+   - 4小时信号 + EMA21入场
+   - SKIP过滤 + 黄金阈值过滤
+   - 完整的仓位管理和风控
+   - 正常交易执行
+🎯 V4.1.1新增功能：
+   ⭐ 基础物理信号4H定时记录
+   ⭐ 信号历史JSON保存
+   ⭐ 便于复盘对比分析
+   ⭐ V4.1交易功能100%保留
 """
 import numpy as np
 import pandas as pd
@@ -109,6 +113,71 @@ class TradeHistoryTracker:
         print(f"\n{'='*80}")
         print(f"   交易历史统计: {total}笔 | 胜率: {wins/total*100:.1f}% | 总收益: {total_pct:+.2f}% | 平均: {avg_pct:+.2f}%")
         print(f"{'='*80}\n")
+# ==================== [基础物理信号记录器 - V4.1.1新增] ====================
+class BasicPhysicsSignalTracker:
+    """基础物理信号追踪器 - 记录验证4原始信号，用于复盘分析"""
+    def __init__(self, signal_file='basic_physics_signals.json'):
+        self.signal_file = signal_file
+        self.signals = self.load_signals()
+    def load_signals(self):
+        """加载信号历史"""
+        if os.path.exists(self.signal_file):
+            try:
+                with open(self.signal_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"加载基础信号历史失败: {e}")
+                return []
+        return []
+    def save_signals(self):
+        """保存信号历史"""
+        try:
+            with open(self.signal_file, 'w', encoding='utf-8') as f:
+                json.dump(self.signals, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"保存基础信号历史失败: {e}")
+    def add_signal(self, timestamp, regime_type, regime_desc, tension, acceleration,
+                   dxy_fuel, confidence, btc_price, ls_ratio=None, oi=None,
+                   funding_rate=None, liquidation=None):
+        """添加基础物理信号记录"""
+        signal = {
+            'timestamp': timestamp.isoformat(),
+            'regime_type': regime_type,  # BEARISH_SINGULARITY / BULLISH_SINGULARITY / NO_SIGNAL
+            'regime_desc': regime_desc,
+            'tension': round(tension, 4),
+            'acceleration': round(acceleration, 4),
+            'dxy_fuel': round(dxy_fuel, 2),
+            'confidence': confidence,
+            'btc_price': round(btc_price, 2),
+            'ls_ratio': round(ls_ratio, 2) if ls_ratio else None,
+            'oi': round(oi, 2) if oi else None,
+            'funding_rate': round(funding_rate, 4) if funding_rate else None,
+            'liquidation': round(liquidation, 2) if liquidation else None
+        }
+        self.signals.append(signal)
+        self.save_signals()
+        return signal
+    def get_recent_signals(self, hours=24):
+        """获取最近N小时的信号"""
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+        recent = []
+        for sig in self.signals:
+            sig_time = pd.to_datetime(sig['timestamp'])
+            if sig_time >= cutoff_time:
+                recent.append(sig)
+        return recent
+    def print_summary(self, hours=24):
+        """打印信号摘要"""
+        recent = self.get_recent_signals(hours)
+        if not recent:
+            print(f"\n最近{hours}小时无基础物理信号")
+            return
+        bearish_count = sum(1 for s in recent if s['regime_type'] == 'BEARISH_SINGULARITY')
+        bullish_count = sum(1 for s in recent if s['regime_type'] == 'BULLISH_SINGULARITY')
+        print(f"\n{'='*80}")
+        print(f"   基础物理信号统计（最近{hours}小时）: {len(recent)}次")
+        print(f"   看空奇点: {bearish_count}次 | 看涨奇点: {bullish_count}次")
+        print(f"{'='*80}\n")
 # ==================== [1. 配置类 - V4.1 Smart Ape版] ====================
 class PhysicsSignalConfigV4_1:
     """物理奇点信号配置 - V4.1 Smart Ape版（V3.1完整功能 + Smart Ape动态风险管理）"""
@@ -159,7 +228,7 @@ class PhysicsSignalConfigV4_1:
         # 如果检测到云端环境，禁用代理
         self.proxy_enabled = True and not self.is_cloud_env
 
-        # 自动测试代理连接（如果启用的话）
+        # 自动测试代理连接
         if self.proxy_enabled and not self.is_cloud_env:
             try:
                 import requests
@@ -3056,21 +3125,25 @@ notifier = None           # 消息推送器（全局）
 # ==================== [9. 主程序] ====================
 # ==================== [10. 主程序 - V3.1集成版] ====================
 def main():
-    """V4.1完整版主程序 - V3.1完整功能 + Smart Ape动态风险管理"""
+    """V4.1.1完整版主程序 - V3.1完整功能 + Smart Ape动态风险管理 + 基础信号记录"""
     print("="*80)
-    print("物理奇点预警系统 V4.1 Smart Ape Edition")
+    print("物理奇点预警系统 V4.1.1 双信号版")
     print("="*80)
-    print("完整功能：V3.1所有功能 + 黄金阈值 + Smart Ape动态风险管理")
+    print("完整功能：V4.1所有功能 + 基础物理信号4H记录（用于复盘）")
     print("数据来源：Binance实时K线 + Coinalyze (OI/FR/LS-Ratio/清算)")
     print("="*80)
     config = PhysicsSignalConfigV4_1()
-    print("\n📋 系统配置 (V4.1 Smart Ape):")
+    print("\n📋 系统配置 (V4.1.1 双信号版):")
     print(f"   代理启用: {'是' if config.proxy_enabled else '否'}")
     print(f"   交易对: {config.binance_symbol}")
     print(f"   物理参数: 张力阈值{config.TENSION_THRESHOLD}, 加速度阈值{config.ACCEL_THRESHOLD}")
     print(f"   止盈止损: 止损{config.sl_pct}%, TP1:{config.tp1_pct}%, TP2:{config.tp2_pct}%")
     print(f"   追踪偏移: {config.trail_offset_pct}%, TP1后激活: {'是' if config.trail_after_tp1 else '否'}")
     print(f"   基础仓位: {config.base_position_ratio*100:.0f}% = 首次{config.base_position_ratio*0.5*100:.0f}% + 加仓{config.base_position_ratio*0.5*100:.0f}%")
+    # 🎯 V4.1.1：双信号系统
+    print(f"\n📊 双信号系统:")
+    print(f"   基础物理信号: 每4H计算并记录（复盘用）")
+    print(f"   V4.1交易信号: 完整Smart Ape系统（交易用）")
     # 🎯 V4.1 Smart Ape：Smart Ape配置
     print(f"\n🦍 Smart Ape动态风险管理:")
     print(f"   黄金阈值(空单): LS >= {config.GOLDEN_THRESHOLD_SHORT} (跳过LS<2.0，+4.5%收益)")
@@ -3082,6 +3155,10 @@ def main():
     data_fetcher = EnhancedDataFetcher(config)
     physics_engine = PhysicsDiagnosisEngine(config)
     position_tracker = PositionTracker(config, notifier)
+    # 🎯 V4.1.1：初始化基础物理信号追踪器
+    global basic_signal_tracker
+    basic_signal_tracker = BasicPhysicsSignalTracker('basic_physics_signals.json')
+    print(f"\n✅ 基础物理信号追踪器: 已初始化 (保存到: basic_physics_signals.json)")
     # 🎯 V4.1 Smart Ape：初始化Smart Ape风险管理器
     global smart_ape_manager
     smart_ape_manager = SmartApeRiskManager(config, data_fetcher)
@@ -3146,6 +3223,72 @@ def main():
             logger.info("✅ 市场数据更新完成")
         except Exception as e:
             logger.error(f"风险评估错误: {e}")
+    # 🎯 V4.1.1新增：基础物理信号定时记录（每4H）
+    def scheduled_basic_physics_signal_check():
+        """基础物理信号检查 - 每4H计算并记录（不参与交易）"""
+        try:
+            logger.info("[基础信号] 开始计算基础物理信号...")
+            # 获取BTC 4H数据（需要100个4H K线来计算物理参数）
+            btc_4h_data = data_fetcher.fetch_btc_data(interval='4h', limit=105)
+            if btc_4h_data is None or len(btc_4h_data) < 100:
+                logger.warning(f"[基础信号] 4H数据不足: {len(btc_4h_data) if btc_4h_data is not None else 0}条")
+                return
+            # 计算物理参数
+            prices = btc_4h_data['close'].values
+            tension, acceleration = physics_engine.calculate_tension_acceleration(prices)
+            # 获取DXY燃料
+            dxy_df = data_fetcher.load_dxy_data_csv()
+            dxy_fuel = physics_engine.get_dxy_fuel(dxy_df)
+            # 诊断体制
+            regime_type, regime_desc, confidence = physics_engine.diagnose_regime(tension, acceleration, dxy_fuel)
+            # 获取当前价格和市场数据
+            current_price = btc_4h_data.iloc[-1]['close']
+            current_time = datetime.now()
+            # 获取Coinalyze数据（用于记录）
+            try:
+                ls_ratio = data_fetcher.get_latest_ls_ratio()
+                oi = data_fetcher.get_latest_oi()
+                funding_rate = data_fetcher.get_latest_funding_rate()
+                liquidation = data_fetcher.get_latest_liquidation()
+            except:
+                ls_ratio, oi, funding_rate, liquidation = None, None, None, None
+            # 记录信号
+            basic_signal_tracker.add_signal(
+                timestamp=current_time,
+                regime_type=regime_type,
+                regime_desc=regime_desc,
+                tension=tension,
+                acceleration=acceleration,
+                dxy_fuel=dxy_fuel,
+                confidence=confidence,
+                btc_price=current_price,
+                ls_ratio=ls_ratio,
+                oi=oi,
+                funding_rate=funding_rate,
+                liquidation=liquidation
+            )
+            logger.info(f"[基础信号] 已记录: {regime_type} | 张力={tension:.3f} | 加速度={acceleration:.3f} | DXY燃料={dxy_fuel:.2f} | 置信度={confidence}")
+            # 如果有SINGULARITY信号，发送通知
+            if regime_type in ['BEARISH_SINGULARITY', 'BULLISH_SINGULARITY']:
+                details = {
+                    "📊 基础物理信号": "─",
+                    "信号类型": regime_type,
+                    "信号描述": regime_desc,
+                    "张力": f"{tension:.4f}",
+                    "加速度": f"{acceleration:.4f}",
+                    "DXY燃料": f"{dxy_fuel:.2f}",
+                    "置信度": f"{confidence:.2f}",
+                    "BTC价格": f"${current_price:.2f}",
+                    "说明": "此为基础物理信号，仅用于复盘记录，不参与V4.1交易"
+                }
+                notifier.send_alert(
+                    f"📊 基础物理信号 - {regime_desc}",
+                    f"张力={tension:.3f}, 加速度={acceleration:.3f}, DXY燃料={dxy_fuel:.2f}",
+                    details,
+                    urgency="low"
+                )
+        except Exception as e:
+            logger.error(f"[基础信号] 计算失败: {e}")
     # 调度函数
     def scheduled_normal_check():
         """普通模式检查"""
@@ -3181,10 +3324,15 @@ def main():
     check_times = ["00:00:05", "04:00:05", "08:00:05", "12:00:05", "16:00:05", "20:00:05"]
     for t in check_times:
         schedule.every().day.at(t).do(scheduled_normal_check)
+    # 🎯 V4.1.1新增：基础物理信号每4H记录一次（与4H收盘对齐）
+    basic_signal_times = ["00:00:10", "04:00:10", "08:00:10", "12:00:10", "16:00:10", "20:00:10"]
+    for t in basic_signal_times:
+        schedule.every().day.at(t).do(scheduled_basic_physics_signal_check)
     print(f"\n✅ 系统已启动！")
     print(f"   仓位监控: 每{config.position_check_interval}分钟")
     print(f"   战备检查: 每{config.battle_check_interval}分钟")
     print(f"   风险评估: 每{config.risk_check_interval}分钟 (V3.1新增)")
+    print(f"   基础物理信号: 每4H记录 (V4.1.1新增，复盘用)")
     print(f"   普通检查: 严格对齐 4H 收盘整点")
     print(f"   按 Ctrl+C 停止系统")
     print("="*80)
