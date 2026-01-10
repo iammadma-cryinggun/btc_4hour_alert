@@ -2968,25 +2968,24 @@ def main():
                 liquidation=liquidation
             )
             logger.info(f"[基础信号] 已记录: {regime_type} | 张力={tension:.3f} | 加速度={acceleration:.3f} | DXY燃料={dxy_fuel:.2f} | 置信度={confidence}")
-            # 如果有SINGULARITY信号，发送通知
-            if regime_type in ['BEARISH_SINGULARITY', 'BULLISH_SINGULARITY']:
-                details = {
-                    "📊 基础物理信号": "─",
-                    "信号类型": regime_type,
-                    "信号描述": regime_desc,
-                    "张力": f"{tension:.4f}",
-                    "加速度": f"{acceleration:.4f}",
-                    "DXY燃料": f"{dxy_fuel:.2f}",
-                    "置信度": f"{confidence:.2f}",
-                    "BTC价格": f"${current_price:.2f}",
-                    "说明": "此为基础物理信号，仅用于复盘记录，不参与V4.1交易"
-                }
-                notifier.send_alert(
-                    f"📊 基础物理信号 - {regime_desc}",
-                    f"张力={tension:.3f}, 加速度={acceleration:.3f}, DXY燃料={dxy_fuel:.2f}",
-                    details,
-                    urgency="low"
-                )
+            # 发送通知（所有信号都推送，不过滤）
+            details = {
+                "📊 基础物理信号": "─",
+                "信号类型": regime_type,
+                "信号描述": regime_desc,
+                "张力": f"{tension:.4f}",
+                "加速度": f"{acceleration:.4f}",
+                "DXY燃料": f"{dxy_fuel:.2f}",
+                "置信度": f"{confidence:.2f}",
+                "BTC价格": f"${current_price:.2f}",
+                "说明": "此为基础物理信号，仅用于复盘记录，不参与V4.1交易"
+            }
+            notifier.send_alert(
+                f"📊 基础物理信号 - {regime_desc}",
+                f"张力={tension:.3f}, 加速度={acceleration:.3f}, DXY燃料={dxy_fuel:.2f}",
+                details,
+                urgency="low"
+            )
         except Exception as e:
             logger.error(f"[基础信号] 计算失败: {e}")
     # 调度函数
