@@ -39,12 +39,20 @@ import schedule
 import logging
 from collections import deque
 warnings.filterwarnings('ignore')
+
+# 检测是否在云端环境，使用持久化存储目录
+IS_CLOUD = os.getenv('ZEABUR') is not None or os.getenv('CLOUD_ENV') is not None
+DATA_DIR = '/app/data' if IS_CLOUD else '.'
+
+# 确保数据目录存在
+os.makedirs(DATA_DIR, exist_ok=True)
+
 # 设置日志
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('physics_alert_v3_1_complete.log', encoding='utf-8'),
+        logging.FileHandler(f'{DATA_DIR}/physics_alert_v3_1_complete.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -52,7 +60,9 @@ logger = logging.getLogger(__name__)
 # ==================== [交易历史记录系统] ====================
 class TradeHistoryTracker:
     """交易历史追踪器 - 记录所有已完成的交易"""
-    def __init__(self, history_file='trade_history.json'):
+    def __init__(self, history_file=None):
+        if history_file is None:
+            history_file = f'{DATA_DIR}/trade_history.json'
         self.history_file = history_file
         self.trades = self.load_history()
     def load_history(self):
@@ -116,7 +126,9 @@ class TradeHistoryTracker:
 # ==================== [基础物理信号记录器 - V4.1.1新增] ====================
 class BasicPhysicsSignalTracker:
     """基础物理信号追踪器 - 记录验证4原始信号，用于复盘分析"""
-    def __init__(self, signal_file='basic_physics_signals.json'):
+    def __init__(self, signal_file=None):
+        if signal_file is None:
+            signal_file = f'{DATA_DIR}/basic_physics_signals.json'
         self.signal_file = signal_file
         self.signals = self.load_signals()
     def load_signals(self):
@@ -216,7 +228,6 @@ class PhysicsSignalConfigV4_1:
         self.max_slippage = 0.005
         self.taker_fee = 0.0004
         # 代理配置（云端环境自动禁用）
-        import os
         # 检测是否在云端环境（Zeabur等）
         self.is_cloud_env = os.getenv('ZEABUR') is not None or os.getenv('CLOUD_ENV') is not None
 
@@ -239,11 +250,20 @@ class PhysicsSignalConfigV4_1:
                 print(f'代理连接失败，自动禁用')
                 self.proxy_enabled = False
                 self.is_cloud_env = True
-        # Telegram配置
-        self.telegram_token = "8189663571:AAEvIUEBTfF_MfyKc7rWq5gQvgi4gAxZJrA"
-        self.telegram_chat_id = "838429342"
-        # 微信Server酱配置
-        self.wechat_sckey = "SCT307134TCw1AtdGtadVA7CZhRklB0ptp"
+        # Telegram配置（从环境变量读取，支持云端部署）
+        self.telegram_token = os.getenv('TELEGRAM_TOKEN') or "8189663571:AAEvIUEBTfF_MfyKc7rWq5gQvgi4gAxZJrA"
+        self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID') or "838429342"
+        # 微信Server酱配置（从环境变量读取）
+        self.wechat_sckey = os.getenv('WECHAT_SCKEY') or "SCT307134TCw1AtdGtadVA7CZhRklB0ptp"
+
+        # 云端环境验证
+        if self.is_cloud_env:
+            print(f"✅ 云端环境检测: Zeabur/CLOUD_ENV")
+            print(f"✅ 数据目录: {DATA_DIR}")
+            if os.getenv('TELEGRAM_TOKEN'):
+                print(f"✅ TELEGRAM_TOKEN: 已从环境变量读取")
+            if os.getenv('TELEGRAM_CHAT_ID'):
+                print(f"✅ TELEGRAM_CHAT_ID: 已从环境变量读取")
         # 数据源
         self.binance_symbol = "BTCUSDT"
         self.timeframe_4h = "4h"
@@ -1278,12 +1298,12 @@ class PositionTracker:
     def __init__(self, config, notifier):
         self.config = config
         self.notifier = notifier
-        # 加载仓位状态
-        self.position_file = "position_tracker_aligned_status.json"
+        # 加载仓位状态（使用DATA_DIR）
+        self.position_file = f"{DATA_DIR}/position_tracker_aligned_status.json"
         # 🎯 信号历史文件（独立于持仓，用于混合策略）
-        self.signal_history_file = "signal_history.json"
+        self.signal_history_file = f"{DATA_DIR}/signal_history.json"
         # ✅ 交易历史追踪器
-        self.trade_history = TradeHistoryTracker('trade_history.json')
+        self.trade_history = TradeHistoryTracker()  # 使用默认DATA_DIR路径
         self.load_position()
         self.load_signal_history()
         self.trade_history.print_summary()  # 启动时显示历史统计
@@ -2183,7 +2203,7 @@ class BattleSignalGenerator:
         self.data_fetcher = data_fetcher
         self.position_tracker = position_tracker
         self.physics_engine = PhysicsDiagnosisEngine(config)
-        self.status_file = "battle_aligned_status.json"
+        self.status_file = f"{DATA_DIR}/battle_aligned_status.json"
         self.load_status()
     def load_status(self):
         """加载状态"""
@@ -2255,8 +2275,9 @@ class BattleSignalGenerator:
                     self.config.original_tp_reached = False
                     # 🎯 删除信号历史文件（防止重启后恢复）
                     try:
-                        if os.path.exists("signal_history.json"):
-                            os.remove("signal_history.json")
+                        signal_history_path = f"{DATA_DIR}/signal_history.json"
+                        if os.path.exists(signal_history_path):
+                            os.remove(signal_history_path)
                             logger.info("已删除信号历史文件")
                     except Exception as e:
                         logger.error(f"删除信号历史文件失败: {e}")
@@ -2855,10 +2876,10 @@ def main():
     data_fetcher = EnhancedDataFetcher(config)
     physics_engine = PhysicsDiagnosisEngine(config)
     position_tracker = PositionTracker(config, notifier)
-    # 🎯 V4.1.1：初始化基础物理信号追踪器
+    # 🎯 V4.1.1：初始化基础物理信号追踪器（使用DATA_DIR）
     global basic_signal_tracker
-    basic_signal_tracker = BasicPhysicsSignalTracker('basic_physics_signals.json')
-    print(f"\n✅ 基础物理信号追踪器: 已初始化 (保存到: basic_physics_signals.json)")
+    basic_signal_tracker = BasicPhysicsSignalTracker()  # 使用默认DATA_DIR路径
+    print(f"\n✅ 基础物理信号追踪器: 已初始化 (保存到: {DATA_DIR}/basic_physics_signals.json)")
     # 🎯 V4.1 Smart Ape：初始化Smart Ape风险管理器
     global smart_ape_manager
     smart_ape_manager = SmartApeRiskManager(config, data_fetcher)
