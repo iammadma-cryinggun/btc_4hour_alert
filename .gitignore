@@ -1,52 +1,40 @@
-# V4.1.1 Git忽略文件
+# 环境变量文件（包含敏感信息）
+.env
 
-# Python缓存
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# 虚拟环境
-venv/
-ENV/
-env/
+# 日志文件
+*.log
 
-# IDE配置
+# 系统状态文件
+*_state.json
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# 日志文件
-*.log
-physics_alert_v3_1_complete.log
-
-# 运行时生成的文件
-position_tracker_aligned_status.json
-battle_aligned_status.json
-basic_physics_signals.json
-trade_history.json
-signal_history.json
-
-# 临时文件
-*.tmp
-*.bak
-*.backup
-
-# 操作系统文件
+# 操作系统
 .DS_Store
 Thumbs.db
-
-# 测试文件
-test_*.py
-*_test.py
-
-# 备份文件
-*_backup.*
-*_old.*
-
-# 输出文件
-output.log
-nohup.out
