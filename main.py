@@ -781,11 +781,8 @@ class MathematicianSignalSystemV4_2:
         logger.info("[OK] 决策引擎初始化完成")
         logger.info("[OK] Telegram通知初始化完成")
 
-        # 通知系统启动
-        self.notifier.notify_system_start()
-
         logger.info("="*60)
-        logger.info("[OK] 系统启动完成，开始监控...")
+        logger.info("[OK] 系统初始化完成")
         logger.info("="*60)
 
     def check_signals(self):
@@ -1011,6 +1008,12 @@ if __name__ == "__main__":
                 logger.info("本地环境：启用代理配置")
         except ImportError:
             logger.info("云环境适配器不可用，使用默认配置")
+
+        # 在代理配置完成后发送系统启动通知
+        logger.info("="*60)
+        logger.info("[OK] 系统启动完成，开始监控...")
+        logger.info("="*60)
+        system.notifier.notify_system_start()
 
         system.run()
     except Exception as e:
