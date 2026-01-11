@@ -275,7 +275,6 @@ class DataFetcher:
 
             url = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTWEXBGS'
 
-            self._wait_before_request()
             resp = self.session.get(url, timeout=15)
 
             if resp.status_code == 200:
