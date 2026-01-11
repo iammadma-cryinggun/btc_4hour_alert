@@ -2947,7 +2947,11 @@ def main():
     def scheduled_basic_physics_signal_check():
         """基础物理信号检查 - 每4H计算并记录（不参与交易）"""
         try:
-            logger.info("[基础信号] 开始计算基础物理信号...")
+            current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"\n{'='*60}")
+            print(f"📊 [基础物理信号] {current_time_str} - 开始执行")
+            print(f"{'='*60}")
+            logger.info(f"[基础信号] {current_time_str} - 开始计算基础物理信号...")
             # 获取BTC 4H数据（需要100个4H K线来计算物理参数）
             btc_4h_data = data_fetcher.fetch_btc_data(interval='4h', limit=105)
             if btc_4h_data is None or len(btc_4h_data) < 100:
@@ -3006,7 +3010,10 @@ def main():
                 details,
                 urgency="low"
             )
+            print(f"✅ [基础物理信号] 已发送Telegram通知: {regime_desc}")
+            print(f"{'='*60}\n")
         except Exception as e:
+            print(f"❌ [基础信号] 执行失败: {e}")
             logger.error(f"[基础信号] 计算失败: {e}")
     # 调度函数
     def scheduled_normal_check():
@@ -3054,8 +3061,13 @@ def main():
         schedule.every().day.at(t).do(scheduled_normal_check)
     # 🎯 V4.1.1新增：基础物理信号每4H记录一次（与4H收盘对齐）
     basic_signal_times = ["00:00:10", "04:00:10", "08:00:10", "12:00:10", "16:00:10", "20:00:10"]
+    print(f"   📊 基础物理信号调度: {basic_signal_times}")
     for t in basic_signal_times:
         schedule.every().day.at(t).do(scheduled_basic_physics_signal_check)
+        print(f"     ✓ 已调度: {t}")
+    print(f"   普通检查调度: {check_times}")
+    for t in check_times:
+        print(f"     ✓ 已调度: {t}")
     print(f"\n✅ 系统已启动！")
     print(f"   仓位监控: 每{config.position_check_interval}分钟")
     print(f"   战备检查: 每{config.battle_check_interval}分钟")
@@ -3089,6 +3101,11 @@ def main():
     # 计算并显示倒计时
     now = datetime.now().strftime("%H:%M:%S")
     print(f"ℹ️  当前时间 {now}，系统已进入潜伏状态")
+    # 显示下一次调度时间
+    print(f"\n📅 下一次调度时间:")
+    for job in schedule.jobs:
+        print(f"   - {job}")
+    print(f"{'='*80}\n")
     # 主循环
     try:
         while True:
