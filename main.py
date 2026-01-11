@@ -1004,6 +1004,10 @@ if __name__ == "__main__":
             if env in ['cloud', 'docker']:
                 logger.info("云环境：禁用代理配置")
                 system.config.proxy_enabled = False
+                # 关键：清除已创建的session的代理配置
+                system.binance_data.session.proxies = {}
+                system.telegram_notifier.session.proxies = {}
+                logger.info("已清除requests session的代理设置")
             else:
                 logger.info("本地环境：启用代理配置")
         except ImportError:
