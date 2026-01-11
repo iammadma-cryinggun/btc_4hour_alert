@@ -131,6 +131,7 @@ class MathematicianConfig:
         self.entry_signal = None
         self.entry_confidence = 0.0
         self.entry_dxy_fuel = 0.0
+        self.stop_loss_price = 0.0  # 止损价格
 
         # 最新信号
         self.last_signal_time = None
@@ -674,7 +675,7 @@ class TelegramNotifier:
 
         return self.send_message(message)
 
-    def notify_exit(self, direction, exit_price, reason, pnl_pct=None):
+    def notify_exit(self, direction, exit_price, reason, pnl_pct=None, stop_loss_price=None):
         """通知平仓"""
         emoji = "[LONG]" if direction == 'long' else "[SHORT]"
 
@@ -683,12 +684,17 @@ class TelegramNotifier:
             pnl_emoji = "[+]" if pnl_pct > 0 else "[-]"
             pnl_info = f"\n📊 盈亏: {pnl_emoji} {pnl_pct:.2f}%"
 
+        # 添加止损价格信息
+        stop_loss_info = ""
+        if stop_loss_price is not None:
+            stop_loss_info = f"\n🛑 止损价格: ${stop_loss_price:.2f}"
+
         message = f"""
 ❌ [数学家策略V4.2] 平仓通知
 {'='*40}
 📍 交易方向: {emoji} {direction.upper()}
 💰 出场价格: ${exit_price:.2f}
-📝 出场理由: {reason}{pnl_info}
+📝 出场理由: {reason}{pnl_info}{stop_loss_info}
 ⏰ 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 {'='*40}
 """
@@ -879,6 +885,7 @@ class MathematicianSignalSystemV4_2:
         self.config.entry_signal = signal_row['signal_type']
         self.config.entry_confidence = confidence
         self.config.entry_dxy_fuel = dxy_fuel
+        self.config.stop_loss_price = stop_loss_price  # 保存止损价格
 
         # 计算止损价格
         if direction == 'long':
@@ -911,6 +918,7 @@ class MathematicianSignalSystemV4_2:
         """平仓"""
         direction = self.config.position_type
         entry_price = self.config.entry_price
+        stop_loss_price = self.config.stop_loss_price  # 获取保存的止损价格
 
         # 计算盈亏
         if direction == 'long':
@@ -929,8 +937,8 @@ class MathematicianSignalSystemV4_2:
             'pnl_pct': pnl_pct_leveraged
         })
 
-        # 通知
-        self.notifier.notify_exit(direction, exit_price, reason, pnl_pct_leveraged)
+        # 通知（包含止损价格）
+        self.notifier.notify_exit(direction, exit_price, reason, pnl_pct_leveraged, stop_loss_price)
 
         # 如果是逻辑失效，额外通知
         if "逻辑失效" in reason:
