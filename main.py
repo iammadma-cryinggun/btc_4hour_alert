@@ -994,6 +994,21 @@ class MathematicianSignalSystemV4_2:
 if __name__ == "__main__":
     try:
         system = MathematicianSignalSystemV4_2()
+
+        # 🔧 云环境适配：根据运行环境自动调整配置
+        try:
+            from cloud_adapter import detect_environment, adjust_proxy_config
+            env = detect_environment()
+            logger.info(f"检测到运行环境: {env}")
+
+            if env in ['cloud', 'docker']:
+                logger.info("云环境：禁用代理配置")
+                system.config.proxy_enabled = False
+            else:
+                logger.info("本地环境：启用代理配置")
+        except ImportError:
+            logger.info("云环境适配器不可用，使用默认配置")
+
         system.run()
     except Exception as e:
         logger.error(f"[致命错误] {e}")
