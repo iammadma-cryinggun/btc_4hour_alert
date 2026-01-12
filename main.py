@@ -779,21 +779,27 @@ class TelegramNotifier:
 
         try:
             url = f"https://api.telegram.org/bot{self.token}/getUpdates"
+            # 不使用long polling，立即返回
             params = {
                 'offset': offset,
-                'timeout': 10,
+                'timeout': 0,  # 不使用long polling
                 'allowed_updates': ['message']
             }
 
-            response = self.session.get(url, params=params, timeout=15)
+            response = self.session.get(url, params=params, timeout=10)
             result = response.json()
 
             if result.get('ok'):
-                return result.get('result', [])
-            return []
+                updates = result.get('result', [])
+                if updates:
+                    logger.info(f"[Telegram] getUpdates返回 {len(updates)} 条消息, offset={offset}")
+                return updates
+            else:
+                logger.error(f"[Telegram] getUpdates失败: {result}")
+                return []
 
         except Exception as e:
-            logger.debug(f"获取Telegram更新失败: {e}")
+            logger.error(f"[Telegram] getUpdates异常: {e}")
             return []
 
     def notify_help(self):
@@ -833,6 +839,7 @@ class MathematicianSignalSystemV4_2:
 
         # Telegram命令处理的offset
         self.telegram_update_offset = 0
+        self.telegram_command_check_count = 0
 
         # 加载状态
         self.config.load_state()
@@ -1033,6 +1040,11 @@ class MathematicianSignalSystemV4_2:
         """处理Telegram命令"""
         if not self.config.telegram_enabled:
             return
+
+        # 每10次（10分钟）打印一次日志，确认命令检查在运行
+        self.telegram_command_check_count += 1
+        if self.telegram_command_check_count % 10 == 1:
+            logger.info(f"[Telegram] 命令检查运行中... (第{self.telegram_command_check_count}次, offset={self.telegram_update_offset})")
 
         try:
             # 使用offset获取新消息
