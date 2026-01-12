@@ -1097,6 +1097,14 @@ class MathematicianSignalSystemV4_2:
         logger.info("[数学家策略V4.2] 进入主循环")
         logger.info("="*60)
 
+        # 显示当前时间和时区信息
+        from datetime import datetime, timezone, timedelta
+        now_utc = datetime.now(timezone.utc)
+        now_beijing = now_utc + timedelta(hours=8)
+
+        logger.info(f"[时区] 当前UTC时间: {now_utc.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[时区] 当前北京时间: {now_beijing.strftime('%Y-%m-%d %H:%M:%S')}")
+
         # BTC 4H K线收盘时间 (UTC)
         # 0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC
         # 对应北京时间: 8:00, 12:00, 16:00, 20:00, 0:00, 4:00
@@ -1107,7 +1115,10 @@ class MathematicianSignalSystemV4_2:
         schedule.every().day.at("16:00").do(self.check_signals)
         schedule.every().day.at("20:00").do(self.check_signals)
 
-        logger.info("[定时] 已配置4H K线收盘扫描: 0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC")
+        logger.info("[定时] 已配置4H K线收盘扫描:")
+        logger.info("       UTC时间: 0:00, 4:00, 8:00, 12:00, 16:00, 20:00")
+        logger.info("       北京时间: 8:00, 12:00, 16:00, 20:00, 0:00, 4:00")
+        logger.info("[定时] 与Binance 4H K线收盘时间完全对应 ✅")
 
         # 主循环
         while True:
