@@ -743,10 +743,24 @@ class TelegramNotifier:
             pos_info = f"""
 📍 持仓方向: {direction_emoji} {self.config.position_type.upper()}
 💰 入场价格: ${self.config.entry_price:.2f}
+🛑 止损价格: ${self.config.stop_loss_price:.2f}
 📈 入场张力: {self.config.entry_tension:.3f}
 🎯 入场置信度: {self.config.entry_confidence:.2f}
 ⏰ 入场时间: {self.config.entry_time}
 """
+        else:
+            # 无持仓时显示最近一次信号
+            signal_info = ""
+            if self.config.last_signal_valid:
+                signal_emoji = "[看涨]" if self.config.last_signal_type == "BULLISH_SINGULARITY" else "[看空]"
+                signal_info = f"""
+📊 最近信号: {self.config.last_signal_type}
+{signal_emoji} 信号描述: {self.config.last_signal_desc}
+💰 信号价格: ${self.config.last_signal_price:.2f}
+🎯 信号置信度: {self.config.last_signal_confidence:.2f}
+⏰ 信号时间: {self.config.last_signal_time}
+"""
+                pos_info = f"\n{signal_info}"
 
         message = f"""
 📊 [数学家策略V4.2] 系统状态
@@ -817,6 +831,9 @@ class MathematicianSignalSystemV4_2:
         self.decision_engine = TradingDecisionEngine(self.config)
         self.notifier = TelegramNotifier(self.config)
 
+        # Telegram命令处理的offset
+        self.telegram_update_offset = 0
+
         # 加载状态
         self.config.load_state()
 
@@ -856,6 +873,15 @@ class MathematicianSignalSystemV4_2:
 
             logger.info(f"[信号] 类型: {latest['signal_type']}, 张力: {latest['tension']:.3f}, "
                        f"加速度: {latest['acceleration']:.4f}, 置信度: {latest['confidence']:.2f}")
+
+            # 更新最近信号信息（用于STATUS命令）
+            self.config.last_signal_time = current_time
+            self.config.last_signal_type = str(latest['signal_type'])
+            self.config.last_signal_desc = f"张力:{latest['tension']:.3f}, 加速:{latest['acceleration']:.4f}"
+            self.config.last_signal_price = current_price
+            self.config.last_signal_confidence = float(latest['confidence'])
+            self.config.last_signal_valid = True
+            self.config.save_state()
 
             # 1. 先检查出场条件（如果有持仓）
             if self.config.has_position:
@@ -1009,21 +1035,30 @@ class MathematicianSignalSystemV4_2:
             return
 
         try:
-            # 获取最新更新
-            updates = self.notifier.get_updates()
+            # 使用offset获取新消息
+            updates = self.notifier.get_updates(offset=self.telegram_update_offset)
+
+            if updates:
+                logger.info(f"[Telegram] 收到 {len(updates)} 条消息")
 
             for update in updates:
                 message = update.get('message', {})
                 text = message.get('text', '')
                 chat_id = message.get('chat', {}).get('id')
 
+                logger.info(f"[Telegram] 消息内容: {text}, chat_id: {chat_id}")
+
                 # 只处理来自配置chat_id的命令
-                if chat_id != self.config.telegram_chat_id:
+                if str(chat_id) != str(self.config.telegram_chat_id):
+                    logger.info(f"[Telegram] 忽略非授权chat: {chat_id}")
+                    # 更新offset但跳过
+                    self.telegram_update_offset = update['update_id'] + 1
                     continue
 
                 # 处理命令
                 if text.startswith('/'):
                     command = text.lower().strip()
+                    logger.info(f"[Telegram] 收到命令: {command}")
 
                     if command == '/help':
                         self.notifier.notify_help()
@@ -1044,16 +1079,17 @@ class MathematicianSignalSystemV4_2:
                                 current_price = float(resp.json()['price'])
                                 self.close_position(current_price, "手动平仓")
                                 logger.info("[命令] 已手动平仓")
-                            except:
-                                logger.error("[命令] 获取当前价格失败")
+                            except Exception as ex:
+                                logger.error(f"[命令] 获取当前价格失败: {ex}")
                         else:
                             self.notifier.send_message("当前无持仓，无需平仓")
+                            logger.info("[命令] 无持仓，无需平仓")
 
-                    # 标记此更新为已处理（下次不获取）
-                    self.notifier.get_updates(offset=update['update_id'] + 1)
+                # 更新offset，标记此更新为已处理
+                self.telegram_update_offset = update['update_id'] + 1
 
         except Exception as e:
-            logger.debug(f"处理Telegram命令失败: {e}")
+            logger.error(f"[Telegram] 处理命令失败: {e}")
 
     def run(self):
         """运行主循环"""
