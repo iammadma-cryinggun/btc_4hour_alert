@@ -772,21 +772,21 @@ class TelegramNotifier:
 
         return self.send_message(message)
 
-    def get_updates(self, offset=0):
-        """获取Telegram更新（命令）"""
+    def get_updates(self, offset=0, timeout=30):
+        """获取Telegram更新（命令）- 使用long polling"""
         if not self.enabled:
             return []
 
         try:
             url = f"https://api.telegram.org/bot{self.token}/getUpdates"
-            # 不使用long polling，立即返回
+            # 使用long polling，服务器会保持连接等待新消息
             params = {
                 'offset': offset,
-                'timeout': 0,  # 不使用long polling
+                'timeout': timeout,  # long polling，最多等待30秒
                 'allowed_updates': ['message']
             }
 
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params, timeout=timeout + 10)
             result = response.json()
 
             if result.get('ok'):
@@ -820,6 +820,71 @@ class TelegramNotifier:
 
         return self.send_message(message)
 
+    def start_listening(self, system):
+        """开始监听（在后台线程中运行）- V4.1.1模式"""
+        logger.info("[Telegram] 命令监听线程已启动")
+        update_id = 0
+
+        while True:
+            try:
+                # 使用long polling获取更新
+                updates = self.get_updates(offset=update_id + 1, timeout=30)
+
+                if updates:
+                    for update in updates:
+                        # 更新update_id
+                        update_id = update['update_id']
+
+                        # 处理消息
+                        if 'message' in update:
+                            message = update['message']
+                            text = message.get('text', '')
+                            chat_id = message.get('chat', {}).get('id')
+
+                            logger.info(f"[Telegram] 收到消息: {text}, chat_id: {chat_id}")
+
+                            # 只处理来自配置chat_id的命令
+                            if str(chat_id) != str(self.chat_id):
+                                logger.info(f"[Telegram] 忽略非授权chat: {chat_id}")
+                                continue
+
+                            # 处理命令
+                            if text.startswith('/'):
+                                command = text.lower().strip()
+                                logger.info(f"[Telegram] 收到命令: {command}")
+
+                                if command == '/help':
+                                    self.notify_help()
+                                    logger.info("[命令] 已发送帮助信息")
+
+                                elif command == '/status':
+                                    self.notify_system_status()
+                                    logger.info("[命令] 已发送状态信息")
+
+                                elif command == '/clear':
+                                    if system.config.has_position:
+                                        # 获取当前价格
+                                        import requests as req
+                                        try:
+                                            url = "https://api.binance.com/api/v3/ticker/price"
+                                            params = {'symbol': system.config.binance_symbol}
+                                            resp = req.get(url, params=params, timeout=10)
+                                            current_price = float(resp.json()['price'])
+                                            system.close_position(current_price, "手动平仓")
+                                            logger.info("[命令] 已手动平仓")
+                                        except Exception as ex:
+                                            logger.error(f"[命令] 获取当前价格失败: {ex}")
+                                    else:
+                                        self.send_message("当前无持仓，无需平仓")
+                                        logger.info("[命令] 无持仓，无需平仓")
+
+                # 避免过于频繁请求
+                time.sleep(1)
+
+            except Exception as e:
+                logger.error(f"[Telegram] 监听错误: {e}")
+                time.sleep(5)  # 错误后等待5秒重试
+
 
 # ==================== [6. 主程序] ====================
 class MathematicianSignalSystemV4_2:
@@ -836,10 +901,6 @@ class MathematicianSignalSystemV4_2:
         self.physics_calculator = PhysicsSignalCalculator(self.config)
         self.decision_engine = TradingDecisionEngine(self.config)
         self.notifier = TelegramNotifier(self.config)
-
-        # Telegram命令处理的offset
-        self.telegram_update_offset = 0
-        self.telegram_command_check_count = 0
 
         # 加载状态
         self.config.load_state()
@@ -1036,73 +1097,6 @@ class MathematicianSignalSystemV4_2:
         # 保存状态
         self.config.save_state()
 
-    def handle_telegram_commands(self):
-        """处理Telegram命令"""
-        if not self.config.telegram_enabled:
-            return
-
-        # 每10次（10分钟）打印一次日志，确认命令检查在运行
-        self.telegram_command_check_count += 1
-        if self.telegram_command_check_count % 10 == 1:
-            logger.info(f"[Telegram] 命令检查运行中... (第{self.telegram_command_check_count}次, offset={self.telegram_update_offset})")
-
-        try:
-            # 使用offset获取新消息
-            updates = self.notifier.get_updates(offset=self.telegram_update_offset)
-
-            if updates:
-                logger.info(f"[Telegram] 收到 {len(updates)} 条消息")
-
-            for update in updates:
-                message = update.get('message', {})
-                text = message.get('text', '')
-                chat_id = message.get('chat', {}).get('id')
-
-                logger.info(f"[Telegram] 消息内容: {text}, chat_id: {chat_id}")
-
-                # 只处理来自配置chat_id的命令
-                if str(chat_id) != str(self.config.telegram_chat_id):
-                    logger.info(f"[Telegram] 忽略非授权chat: {chat_id}")
-                    # 更新offset但跳过
-                    self.telegram_update_offset = update['update_id'] + 1
-                    continue
-
-                # 处理命令
-                if text.startswith('/'):
-                    command = text.lower().strip()
-                    logger.info(f"[Telegram] 收到命令: {command}")
-
-                    if command == '/help':
-                        self.notifier.notify_help()
-                        logger.info("[命令] 已发送帮助信息")
-
-                    elif command == '/status':
-                        self.notifier.notify_system_status()
-                        logger.info("[命令] 已发送状态信息")
-
-                    elif command == '/clear':
-                        if self.config.has_position:
-                            # 获取当前价格用于计算盈亏
-                            import requests as req
-                            try:
-                                url = "https://api.binance.com/api/v3/ticker/price"
-                                params = {'symbol': self.config.binance_symbol}
-                                resp = req.get(url, params=params, timeout=10)
-                                current_price = float(resp.json()['price'])
-                                self.close_position(current_price, "手动平仓")
-                                logger.info("[命令] 已手动平仓")
-                            except Exception as ex:
-                                logger.error(f"[命令] 获取当前价格失败: {ex}")
-                        else:
-                            self.notifier.send_message("当前无持仓，无需平仓")
-                            logger.info("[命令] 无持仓，无需平仓")
-
-                # 更新offset，标记此更新为已处理
-                self.telegram_update_offset = update['update_id'] + 1
-
-        except Exception as e:
-            logger.error(f"[Telegram] 处理命令失败: {e}")
-
     def run(self):
         """运行主循环"""
         logger.info("="*60)
@@ -1136,8 +1130,6 @@ class MathematicianSignalSystemV4_2:
         while True:
             try:
                 schedule.run_pending()
-                # 检查Telegram命令
-                self.handle_telegram_commands()
                 time.sleep(60)  # 每分钟检查一次
 
             except KeyboardInterrupt:
@@ -1178,6 +1170,16 @@ if __name__ == "__main__":
         logger.info("[OK] 系统启动完成，开始监控...")
         logger.info("="*60)
         system.notifier.notify_system_start()
+
+        # 🚀 启动Telegram命令监听线程（V4.1.1模式：独立线程+long polling）
+        import threading
+        telegram_thread = threading.Thread(
+            target=system.notifier.start_listening,
+            args=(system,),
+            daemon=True
+        )
+        telegram_thread.start()
+        logger.info("[OK] Telegram命令监听已启动（独立线程）")
 
         system.run()
     except Exception as e:
