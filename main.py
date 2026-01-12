@@ -606,7 +606,7 @@ class TelegramNotifier:
             }
         self.session.verify = False
 
-    def send_message(self, message, parse_mode='Markdown'):
+    def send_message(self, message, parse_mode=None):
         """发送Telegram消息"""
         if not self.enabled:
             return False
@@ -616,9 +616,12 @@ class TelegramNotifier:
             data = {
                 'chat_id': self.chat_id,
                 'text': message,
-                'parse_mode': parse_mode,
                 'disable_web_page_preview': True
             }
+
+            # 仅当明确指定parse_mode时才添加
+            if parse_mode:
+                data['parse_mode'] = parse_mode
 
             response = self.session.post(url, json=data, timeout=10)
             result = response.json()
@@ -751,6 +754,48 @@ class TelegramNotifier:
 🔍 仓位状态: {position_status}{pos_info}
 ⏰ 最后更新: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 {'='*40}
+"""
+
+        return self.send_message(message)
+
+    def get_updates(self, offset=0):
+        """获取Telegram更新（命令）"""
+        if not self.enabled:
+            return []
+
+        try:
+            url = f"https://api.telegram.org/bot{self.token}/getUpdates"
+            params = {
+                'offset': offset,
+                'timeout': 10,
+                'allowed_updates': ['message']
+            }
+
+            response = self.session.get(url, params=params, timeout=15)
+            result = response.json()
+
+            if result.get('ok'):
+                return result.get('result', [])
+            return []
+
+        except Exception as e:
+            logger.debug(f"获取Telegram更新失败: {e}")
+            return []
+
+    def notify_help(self):
+        """发送帮助信息"""
+        message = """
+📖 [数学家策略V4.2] 命令帮助
+{'='*40}
+可用命令:
+
+/help - 显示此帮助信息
+/status - 查看当前持仓状态
+/clear - 手动平仓当前持仓
+
+{'='*40}
+💡 提示: 发送命令时请使用斜杠开头
+例如: /status
 """
 
         return self.send_message(message)
@@ -958,22 +1003,82 @@ class MathematicianSignalSystemV4_2:
         # 保存状态
         self.config.save_state()
 
+    def handle_telegram_commands(self):
+        """处理Telegram命令"""
+        if not self.config.telegram_enabled:
+            return
+
+        try:
+            # 获取最新更新
+            updates = self.notifier.get_updates()
+
+            for update in updates:
+                message = update.get('message', {})
+                text = message.get('text', '')
+                chat_id = message.get('chat', {}).get('id')
+
+                # 只处理来自配置chat_id的命令
+                if chat_id != self.config.telegram_chat_id:
+                    continue
+
+                # 处理命令
+                if text.startswith('/'):
+                    command = text.lower().strip()
+
+                    if command == '/help':
+                        self.notifier.notify_help()
+                        logger.info("[命令] 已发送帮助信息")
+
+                    elif command == '/status':
+                        self.notifier.notify_system_status()
+                        logger.info("[命令] 已发送状态信息")
+
+                    elif command == '/clear':
+                        if self.config.has_position:
+                            # 获取当前价格用于计算盈亏
+                            import requests as req
+                            try:
+                                url = "https://api.binance.com/api/v3/ticker/price"
+                                params = {'symbol': self.config.binance_symbol}
+                                resp = req.get(url, params=params, timeout=10)
+                                current_price = float(resp.json()['price'])
+                                self.close_position(current_price, "手动平仓")
+                                logger.info("[命令] 已手动平仓")
+                            except:
+                                logger.error("[命令] 获取当前价格失败")
+                        else:
+                            self.notifier.send_message("当前无持仓，无需平仓")
+
+                    # 标记此更新为已处理（下次不获取）
+                    self.notifier.get_updates(offset=update['update_id'] + 1)
+
+        except Exception as e:
+            logger.debug(f"处理Telegram命令失败: {e}")
+
     def run(self):
         """运行主循环"""
         logger.info("="*60)
         logger.info("[数学家策略V4.2] 进入主循环")
         logger.info("="*60)
 
-        # 立即执行一次检查
-        self.check_signals()
+        # BTC 4H K线收盘时间 (UTC)
+        # 0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC
+        # 对应北京时间: 8:00, 12:00, 16:00, 20:00, 0:00, 4:00
+        schedule.every().day.at("00:00").do(self.check_signals)
+        schedule.every().day.at("04:00").do(self.check_signals)
+        schedule.every().day.at("08:00").do(self.check_signals)
+        schedule.every().day.at("12:00").do(self.check_signals)
+        schedule.every().day.at("16:00").do(self.check_signals)
+        schedule.every().day.at("20:00").do(self.check_signals)
 
-        # 定时任务
-        schedule.every(4).hours.do(self.check_signals)
+        logger.info("[定时] 已配置4H K线收盘扫描: 0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC")
 
         # 主循环
         while True:
             try:
                 schedule.run_pending()
+                # 检查Telegram命令
+                self.handle_telegram_commands()
                 time.sleep(60)  # 每分钟检查一次
 
             except KeyboardInterrupt:
