@@ -24,9 +24,9 @@ from v707_trader_main import (
     DataFetcher,
     PhysicsSignalCalculator,
     V705EntryFilter,
-    V707ZigZagExitManager,
-    TelegramNotifier
+    V707ZigZagExitManager
 )
+from v707_trader_part2 import TelegramNotifier
 from v707_telegram_handler import start_telegram_listener
 
 import logging
