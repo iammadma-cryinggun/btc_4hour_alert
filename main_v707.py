@@ -27,6 +27,7 @@ from v707_trader_main import (
     V707ZigZagExitManager,
     TelegramNotifier
 )
+from v707_telegram_handler import start_telegram_listener
 
 import logging
 logger = logging.getLogger(__name__)
@@ -93,6 +94,30 @@ class V707TradingEngine:
                 return
 
             logger.info(f"检测到信号: {signal_type} | 置信度: {confidence:.2f} | {description}")
+
+            # ⭐ 记录信号到历史（所有信号都记录）
+            signal_record = {
+                'time': current_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'type': signal_type,
+                'confidence': confidence,
+                'description': description,
+                'price': current_price,
+                'tension': tension,
+                'acceleration': acceleration,
+                'volume_ratio': volume_ratio,
+                'price_vs_ema': price_vs_ema * 100
+            }
+            self.config.signal_history.append(signal_record)
+
+            # 只保留最近20个信号
+            if len(self.config.signal_history) > 20:
+                self.config.signal_history = self.config.signal_history[-20:]
+
+            # 发送信号通知（保留EMOJI）
+            self.notifier.notify_signal(
+                signal_type, confidence, description,
+                current_price, tension, acceleration
+            )
             logger.info(f"价格: ${current_price:.2f} | 张力: {tension:.3f} | 加速度: {acceleration:.3f}")
             logger.info(f"量能比率: {volume_ratio:.2f} | EMA偏离: {price_vs_ema*100:.2f}%")
 
@@ -110,9 +135,19 @@ class V707TradingEngine:
 
             if not should_pass:
                 logger.warning(f"[V7.0.5过滤器] {filter_reason}")
+                # ⭐ 标记信号被过滤（不交易）
+                self.config.signal_history[-1]['filtered'] = True
+                self.config.signal_history[-1]['filter_reason'] = filter_reason
+                self.config.signal_history[-1]['traded'] = False
+                self.notifier.send_message(f"🚫 *信号被V7.0.5过滤器拦截*\n\n📊 信号: {signal_type}\n💰 价格: ${current_price:.2f}\n🚫 原因: {filter_reason}")
                 return
 
             logger.info(f"[V7.0.5过滤器] {filter_reason}")
+
+            # ⭐ 标记信号通过过滤器（将交易）
+            self.config.signal_history[-1]['filtered'] = False
+            self.config.signal_history[-1]['filter_reason'] = filter_reason
+            self.config.signal_history[-1]['traded'] = True
 
             # 检查是否已有持仓
             if self.config.has_position:
@@ -242,7 +277,26 @@ class V707TradingEngine:
                     self.config.losing_trades += 1
                 self.config.total_pnl += pnl_pct * 100
 
-                # 通知
+                # ⭐ 记录交易历史
+                trade_record = {
+                    'entry_time': self.config.entry_time.strftime('%Y-%m-%d %H:%M:%S') if self.config.entry_time else 'N/A',
+                    'direction': self.config.position_type,
+                    'entry_price': self.config.entry_price,
+                    'exit_price': exit_price,
+                    'pnl_pct': pnl_pct * 100,
+                    'reason': reason,
+                    'signal_type': self.config.entry_signal_type,
+                    'confidence': self.config.entry_confidence,
+                    'take_profit': self.config.take_profit_price,
+                    'stop_loss': self.config.stop_loss_price
+                }
+                self.config.position_history.append(trade_record)
+
+                # 只保留最近20笔交易
+                if len(self.config.position_history) > 20:
+                    self.config.position_history = self.config.position_history[-20:]
+
+                # 通知（保留EMOJI）
                 self.notifier.notify_exit(
                     self.config.position_type,
                     self.config.entry_price,
@@ -279,6 +333,18 @@ class V707TradingEngine:
 
         # 启动时通知
         self.notifier.notify_status()
+
+        # ⭐ 启动Telegram命令监听器（独立线程）
+        if self.config.telegram_enabled:
+            import threading
+            telegram_thread = threading.Thread(
+                target=start_telegram_listener,
+                args=(self.config, self),
+                daemon=True,
+                name="TelegramListener"
+            )
+            telegram_thread.start()
+            logger.info("[系统] Telegram命令监听器已启动")
 
         # 设置定时任务
         schedule.every(4).hours.do(self.check_signals)
