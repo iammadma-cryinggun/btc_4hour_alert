@@ -39,19 +39,14 @@ class TelegramNotifier:
         else:
             self.bot = None
 
-    def send_message(self, message, parse_mode=None):
-        """发送Telegram消息（使用telebot库）"""
+    def send_message(self, message):
+        """发送Telegram消息（⭐ 完全参考SOL系统）"""
         if not self.enabled or not self.bot:
             return
 
         try:
-            # ⭐ 使用telebot的send_message方法
-            self.bot.send_message(
-                self.config.telegram_chat_id,
-                message,
-                parse_mode=parse_mode,
-                disable_web_page_preview=True
-            )
+            # ⭐ 只传2个参数（和SOL系统完全一致）
+            self.bot.send_message(self.config.telegram_chat_id, message)
             logger.info(f"[Telegram] 消息已发送")
         except Exception as e:
             logger.error(f"[Telegram] 发送消息失败: {e}")
