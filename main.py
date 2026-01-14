@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-V7.0交易系统 - 主入口
+V7.0.7交易系统 - 主入口（⭐ 已更新）
 适配Zeabur等云平台的启动要求
 """
 
@@ -12,5 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 if __name__ == "__main__":
-    from v70_trader_runner import main
-    main()
+    # ⭐ 运行V7.0.7版本（带telebot库修复）
+    from main_v707 import V707TradingEngine
+    engine = V707TradingEngine()
+    engine.run()
