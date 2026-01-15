@@ -26,7 +26,7 @@ from v707_trader_main import (
     V707ZigZagExitManager
 )
 from v707_trader_part2 import TelegramNotifier
-from v707_telegram_handler import start_telegram_listener
+from v707_telegram_handler import start_telegram_listener, get_beijing_time
 
 import logging
 logger = logging.getLogger(__name__)
