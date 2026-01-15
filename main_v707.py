@@ -16,7 +16,6 @@ V7.0.7 智能交易系统 - 主程序
 import sys
 import os
 import time
-import schedule
 
 # 导入主模块
 from v707_trader_main import (
@@ -363,27 +362,45 @@ class V707TradingEngine:
             telegram_thread.start()
             logger.info("[系统] Telegram命令监听器已启动")
 
-        # 设置定时任务
-        schedule.every(4).hours.do(self.check_signals)
-        schedule.every(1).hours.do(self.check_position)
-
+        # ⭐ 改为精确的时间调度（北京时间4H K线收盘时间）
         logger.info("定时任务已设置：")
-        logger.info("  - 每4小时检查信号")
-        logger.info("  - 每1小时检查持仓")
+        logger.info("  - 信号检查: 北京时间 0:00, 4:00, 8:00, 12:00, 16:00, 20:00")
+        logger.info("  - 持仓检查: 每1小时")
         logger.info("")
 
-        # 立即执行一次信号检查
-        logger.info("执行初始信号检查...")
-        self.check_signals()
-
-        # 主循环
+        # 主循环（精确时间调度）
         logger.info("进入主循环...")
         logger.info("=" * 70)
 
+        last_signal_check_hour = None
+        last_position_check_hour = None
+
         while True:
             try:
-                schedule.run_pending()
-                time.sleep(60)
+                # 获取当前北京时间
+                now_beijing = get_beijing_time()
+                current_hour = now_beijing.hour
+                current_minute = now_beijing.minute
+                current_second = now_beijing.second
+
+                # ⭐ 信号检查：北京时间4H K线收盘时间（0:00, 4:00, 8:00, 12:00, 16:00, 20:00）
+                # 在收盘后5分钟内执行（0:00-0:05, 4:00-4:05, ...）
+                if current_hour % 4 == 0 and current_minute < 5:
+                    if last_signal_check_hour != current_hour:
+                        logger.info(f"[定时] 触发信号检查（北京时间 {now_beijing.strftime('%H:%M')}）")
+                        self.check_signals()
+                        last_signal_check_hour = current_hour
+
+                # ⭐ 持仓检查：每1小时整点执行
+                if current_minute < 1:
+                    if last_position_check_hour != current_hour:
+                        logger.info(f"[定时] 触发持仓检查（北京时间 {now_beijing.strftime('%H:%M')}）")
+                        self.check_position()
+                        last_position_check_hour = current_hour
+
+                # 每秒检查一次
+                time.sleep(1)
+
             except KeyboardInterrupt:
                 logger.info("收到停止信号，正在退出...")
                 break
