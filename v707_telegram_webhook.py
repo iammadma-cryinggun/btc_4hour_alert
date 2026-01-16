@@ -1,20 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-V7.0.7 Telegram Webhook处理器
+V7.0.7 Telegram命令处理器（Polling模式）
 ===========================================
 
-使用Flask + Telebot实现Webhook模式，解决409冲突错误
-
+使用Telebot Polling模式，参考SOL系统
 优势：
-- ✅ 只有一个bot实例，避免409冲突
-- ✅ Webhook比polling更高效
-- ✅ 适合云端部署（Zeabur等）
+- ✅ 配置简单，无需设置Webhook
+- ✅ 适合后台worker进程
+- ✅ 和SOL系统完全一致
 """
 
-from flask import Flask, request
 import telebot
 import logging
-import threading
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -29,7 +26,7 @@ def get_beijing_time():
 
 
 class TelegramWebhookHandler:
-    """Telegram Webhook处理器（使用Flask）"""
+    """Telegram命令处理器（Polling模式）"""
 
     def __init__(self, config, trading_engine):
         self.config = config
@@ -38,17 +35,12 @@ class TelegramWebhookHandler:
         self.chat_id = config.telegram_chat_id
         self.enabled = config.telegram_enabled
 
-        # Flask应用
-        self.app = Flask(__name__)
-        self.bot = None
-
         # 初始化bot和注册处理器
         if self.enabled and self.token:
             try:
                 self.bot = telebot.TeleBot(self.token)
                 logger.info("[Telegram] WebHandler TeleBot初始化成功")
                 self._register_handlers()
-                self._setup_flask_routes()
             except Exception as e:
                 logger.error(f"[Telegram] WebHandler初始化失败: {e}")
                 self.bot = None
@@ -56,6 +48,9 @@ class TelegramWebhookHandler:
         else:
             logger.warning("[Telegram] 未启用或token为空")
             self.bot = None
+
+        # Flask应用（保留但不使用）
+        self.app = None
 
     def _register_handlers(self):
         """注册Telegram消息处理器"""

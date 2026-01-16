@@ -335,14 +335,32 @@ class V707TradingEngine:
         except Exception as e:
             logger.error(f"检查持仓异常: {e}", exc_info=True)
 
+    def run_telegram_polling(self):
+        """运行Telegram轮询（参考SOL系统）"""
+        while True:
+            try:
+                logger.info("[Telegram] Polling启动...")
+                # 使用和SOL系统完全一样的参数
+                self.webhandler.bot.polling(
+                    non_stop=False,
+                    interval=1,
+                    timeout=60,
+                    long_polling_timeout=20
+                )
+            except Exception as e:
+                logger.error(f"[Telegram] Polling异常: {e}")
+                logger.info("[Telegram] 5秒后重新启动...")
+                import time
+                time.sleep(5)
+
     def run(self, start_flask=False):
-        """主循环（Webhook模式）
+        """主循环（Polling模式，参考SOL系统）
 
         Args:
-            start_flask: 是否启动Flask服务器（Gunicorn模式下应为False）
+            start_flask: 是否启动Flask服务器（已废弃，保留兼容性）
         """
         logger.info("=" * 70)
-        logger.info("V7.0.7 智能交易系统启动（Webhook模式）")
+        logger.info("V7.0.7 智能交易系统启动（Polling模式）")
         logger.info("=" * 70)
         logger.info(f"Telegram Token: {self.config.telegram_token[:20]}...")
         logger.info(f"Telegram Chat ID: {self.config.telegram_chat_id}")
@@ -352,27 +370,19 @@ class V707TradingEngine:
         # 启动时通知
         self.notifier.notify_status()
 
-        # ⭐ 启动Flask Webhook服务器（后台线程）
-        if start_flask and self.config.telegram_enabled and self.webhandler.enabled:
+        # ⭐ 启动Telegram Polling（后台线程）
+        if self.config.telegram_enabled and self.webhandler.enabled:
             import threading
 
-            # 从环境变量获取webhook URL
-            webhook_url = os.environ.get('TELEGRAM_WEBHOOK_URL', '')
-            port = int(os.environ.get('PORT', 8080))
-
-            # 如果有webhook URL，设置Telegram webhook
-            if webhook_url:
-                full_webhook_url = f"{webhook_url}/{self.config.telegram_token}"
-                logger.info(f"[系统] 设置Webhook: {full_webhook_url}")
-                self.webhandler.set_webhook(full_webhook_url)
-            else:
-                logger.info("[系统] 未设置Webhook URL，使用Flask服务器模式")
-
-            # 启动Flask服务器（后台线程）
-            flask_thread = self.webhandler.run_flask_threaded(port=port, host='0.0.0.0')
-            logger.info(f"[系统] Flask Webhook服务器已启动（端口 {port}）")
+            # 在后台线程中启动Telegram轮询
+            telegram_thread = threading.Thread(
+                target=self.run_telegram_polling,
+                daemon=False
+            )
+            telegram_thread.start()
+            logger.info("[系统] Telegram Polling已启动（后台线程）")
         else:
-            logger.info("[系统] Flask由Gunicorn管理或Telegram未启用，跳过手动启动")
+            logger.warning("[系统] Telegram未启用")
 
         # ⭐ 改为精确的时间调度（北京时间4H K线收盘时间）
         logger.info("定时任务已设置：")
