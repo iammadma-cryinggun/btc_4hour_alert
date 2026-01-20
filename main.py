@@ -6,15 +6,15 @@ V7.0.8 智能交易系统 - 主程序
 完整版本：V7.0.7 + V7.0.8黄金策略识别系统
 
 核心升级：
-1. 保留所有V7.0.7功能（信号计算、V7.0.5过滤器、ZigZag出场）
-2. 新增V7.0.8黄金策略（基于6个月统计学分析）
+1. 保留所有V7.0.7功能（信号计算、V7.0.5过滤器、固定止盈止损）
+2. 新增V7.0.8黄金策略（基于378笔样本统计学分析）
 3. 三级通知系统（原始信号、黄金开仓、黄金平仓）
 4. 通知可靠性改进（3次重试、15秒超时）
 
 使用方法：
 1. 复制此文件到服务器
 2. 配置.env文件中的TELEGRAM_TOKEN
-3. 运行：python main_v708.py
+3. 运行：python main.py
 
 ================================================================================
 """
@@ -28,8 +28,7 @@ from v707_trader_main import (
     V707TraderConfig,
     DataFetcher,
     PhysicsSignalCalculator,
-    V705EntryFilter,
-    V707ZigZagExitManager
+    V705EntryFilter
 )
 from v707_trader_part2 import TelegramNotifier, get_beijing_time
 from v707_telegram_webhook import TelegramWebhookHandler
@@ -51,7 +50,6 @@ class V708TradingEngine:
         self.fetcher = DataFetcher(self.config)
         self.calculator = PhysicsSignalCalculator(self.config)
         self.filter = V705EntryFilter(self.config)
-        self.exit_manager = V707ZigZagExitManager(self.config)
 
         # V7.0.8黄金策略
         self.v708_config = V708Config()
