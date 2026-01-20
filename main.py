@@ -120,12 +120,12 @@ class V708TradingEngine:
             ratio = abs(tension / acceleration) if acceleration != 0 else 0
 
             direction_map = {
-                'BEARISH_SINGULARITY': 'short',
-                'LOW_OSCILLATION': 'long',
-                'BULLISH_SINGULARITY': 'short',
-                'HIGH_OSCILLATION': 'short'
+                'BEARISH_SINGULARITY': 'short',    # 看空信号 → 做空
+                'HIGH_OSCILLATION': 'short',       # 高位震荡 → 做空
+                'BULLISH_SINGULARITY': 'long',     # 看涨信号 → 做多
+                'LOW_OSCILLATION': 'long'          # 低位震荡 → 做多
             }
-            direction = direction_map.get(signal_type, 'short')
+            direction = direction_map.get(signal_type)
 
             # 发送原始信号通知（V7.0.8新增）
             self.v708_notifier.notify_first_signal(

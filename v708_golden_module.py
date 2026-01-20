@@ -207,12 +207,14 @@ class V708GoldenDetector:
                 )
 
                 if is_confirmed:
-                    tension_change = abs((current_tension - orig_tension) / orig_tension * 100)
+                    # LONG的张力是负数，使用绝对值计算变化率
+                    tension_change = (abs(current_tension) - abs(orig_tension)) / abs(orig_tension) * 100
                     price_advantage = (current_price - orig_price) / orig_price * 100
 
                     # 判断是否为黄金机会
+                    # LONG的tension_change是负数时表示张力绝对值减小（向好），使用绝对值判断
                     is_golden = (
-                        tension_change > 5 or price_advantage > 0.5 or ratio >= 100
+                        abs(tension_change) > 5 or price_advantage > 0.5 or ratio >= 100
                     )
 
                     entry_info = {
@@ -292,13 +294,14 @@ class V708GoldenDetector:
                 return True, f"强制平仓: 持仓{hold_periods}周期", 'golden'
 
         else:  # long
-            tension_change = (current_tension - entry_tension) / entry_tension * 100
+            # LONG的张力是负数，使用绝对值计算变化率
+            tension_change = (abs(current_tension) - abs(entry_tension)) / abs(entry_tension) * 100
 
             should_exit = (
                 (current_volume > self.config.LONG_EXIT_ENERGY_EXPAND or
                  hold_periods >= self.config.LONG_EXIT_MIN_PERIOD)
             ) and (
-                tension_change > 0 or
+                tension_change < 0 or  # 张力不再增加（绝对值开始减小）
                 pnl >= self.config.LONG_EXIT_PROFIT_TARGET * 100
             )
 
