@@ -264,33 +264,33 @@ class V708GoldenDetector:
         if pnl >= self.config.FALLBACK_TP * 100:
             return True, f"固定止盈({pnl:.2f}%)", 'fallback'
 
-        # 检查黄金平仓条件
+        # 检查黄金平仓条件（基于6个月统计学分析）
         if direction == 'short':
-            tension_change = (current_tension - entry_tension) / entry_tension * 100
+            # 张力下降比例
+            tension_drop_ratio = (entry_tension - current_tension) / entry_tension
 
+            # SHORT黄金平仓：两个条件组（AND关系）
             should_exit = (
-                (current_volume > self.config.SHORT_EXIT_ENERGY_EXPAND or
-                 hold_periods >= self.config.SHORT_EXIT_MIN_PERIOD)
+                (current_volume > 1.0 or hold_periods >= 5)  # 条件A：量能放大 OR 时间足够
             ) and (
-                tension_change <= -self.config.SHORT_EXIT_TENSION_DROP * 100 or
-                pnl >= self.config.SHORT_EXIT_PROFIT_TARGET * 100
+                tension_drop_ratio >= 0.14 or pnl >= 2  # 条件B：张力下降14% OR 盈利>2%
             )
 
             if should_exit:
                 reasons = []
-                if current_volume > self.config.SHORT_EXIT_ENERGY_EXPAND:
+                if current_volume > 1.0:
                     reasons.append(f"量能放大({current_volume:.2f})")
-                if hold_periods >= self.config.SHORT_EXIT_MIN_PERIOD:
+                if hold_periods >= 5:
                     reasons.append(f"持仓{hold_periods}周期")
-                if tension_change <= -self.config.SHORT_EXIT_TENSION_DROP * 100:
-                    reasons.append(f"张力下降{abs(tension_change):.1f}%")
-                if pnl >= self.config.SHORT_EXIT_PROFIT_TARGET * 100:
+                if tension_drop_ratio >= 0.14:
+                    reasons.append(f"张力下降{tension_drop_ratio*100:.1f}%")
+                if pnl >= 2:
                     reasons.append(f"盈利{pnl:.2f}%")
 
                 return True, f"黄金平仓: {', '.join(reasons)}", 'golden'
 
-            # 强制平仓
-            if hold_periods >= self.config.SHORT_EXIT_MAX_PERIOD:
+            # 强制平仓：持仓过长
+            if hold_periods >= 10:  # 10个周期（40小时）
                 return True, f"强制平仓: 持仓{hold_periods}周期", 'golden'
 
         else:  # long
@@ -311,7 +311,7 @@ class V708GoldenDetector:
                     reasons.append(f"量能放大({current_volume:.2f})")
                 if hold_periods >= self.config.LONG_EXIT_MIN_PERIOD:
                     reasons.append(f"持仓{hold_periods}周期")
-                if tension_change > 0:
+                if tension_change < 0:
                     reasons.append("张力不再增加")
                 if pnl >= self.config.LONG_EXIT_PROFIT_TARGET * 100:
                     reasons.append(f"盈利{pnl:.2f}%")
