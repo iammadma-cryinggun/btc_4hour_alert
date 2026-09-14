@@ -17,7 +17,7 @@ class MicroApexSystem:
         self.obi = OBIEngine(); self.cvd = CVDEngine()
         self.spoof = SpoofDetector(); self.iceberg = IcebergDetector()
         self.trend = TrendFilter(); self.risk = RiskManager()
-        self.signals = []; self.start_time = time.time()
+        self.signals = []; self.start_time = time.time(); self.buy_dom = False; self.sell_dom = False
         self.stats = {'polls':0,'trades':0,'spoofs':0}
 
     def fetch_depth(self):
@@ -51,15 +51,15 @@ class MicroApexSystem:
 
     def check_signals(self):
         obi, obi_ma, obi_t = self.obi.get_obi(), self.obi.get_obi_moving_avg(), self.obi.get_obi_trend()
-        buy_dom, sell_dom = self.obi.is_buy_pressure_dominant(), self.obi.is_sell_pressure_dominant()
+        self.buy_dom, self.sell_dom = self.obi.is_buy_pressure_dominant(), self.obi.is_sell_pressure_dominant()
         cr, cb, cs = self.cvd.get_recent_cvd_ratio(), self.cvd.is_buy_dominant_recent(), self.cvd.is_sell_dominant_recent()
         d = self.obi.get_depth_snapshot()
         bids = self.obi.last_depth[0] if self.obi.last_depth else []
         asks = self.obi.last_depth[1] if self.obi.last_depth else []
         sigs = []
-        if buy_dom and cb and obi > OBI_THRESHOLD_LONG and cr > 0.55:
+        if self.buy_dom and cb and obi > OBI_THRESHOLD_LONG and cr > 0.55:
             sigs.append({'type':'LONG_BREAKOUT','confidence':round(min((obi+cr)/2,1.0),4),'obi':round(obi,4),'obi_ma':round(obi_ma,4),'cvd_ratio':round(cr,4),'obi_trend':obi_t,'ts':datetime.now(timezone.utc).isoformat()})
-        if sell_dom and cs and obi < OBI_THRESHOLD_SHORT and cr < 0.45:
+        if self.sell_dom and cs and obi < OBI_THRESHOLD_SHORT and cr < 0.45:
             sigs.append({'type':'SHORT_BREAKOUT','confidence':round(min((-obi+(1-cr))/2,1.0),4),'obi':round(obi,4),'obi_ma':round(obi_ma,4),'cvd_ratio':round(cr,4),'obi_trend':obi_t,'ts':datetime.now(timezone.utc).isoformat()})
         for fw in self.spoof.detect_fake_walls(bids, asks):
             if fw['likely_spoof']:
@@ -71,13 +71,13 @@ class MicroApexSystem:
     def dashboard(self):
         obi, cr = self.obi.get_obi(), self.cvd.get_recent_cvd_ratio()
         d = self.obi.get_depth_snapshot(); ti = self.trend.get_trend_info()
-        os.system('cls' if os.name=='nt' else 'clear')
+        print(chr(10) * 50)
         print('='*75); print(f'  Micro-Apex V1.0 | {SYMBOL.upper()} | D Drive'); print(f'  Uptime: {int(time.time()-self.start_time)}s | Polls: {self.stats["polls"]}')
         print('='*75)
         print(f'  OBI(5档): {obi:+.4f} | OBI_MA: {self.obi.get_obi_moving_avg():+.4f} | Trend: {self.obi.get_obi_trend()}')
         print(f'  CVD Ratio: {cr:.2%} | CVD: {self.cvd.get_cvd():.2f}')
         print(f'  H1: {ti["h1_trend"]} | H4: {ti["h4_trend"]} | Confirmed: {ti["confirmed"]}')
-        print(f'  Spread: {d.get("spread",0):.2f} | BuyDom: {buy_dom} | SellDom: {sell_dom}')
+        print(f'  Spread: {d.get("spread",0):.2f} | BuyDom: {self.buy_dom} | SellDom: {self.sell_dom}')
         print('-'*75); print(f'  Signals: {len(self.signals)} | Spoofs: {self.stats["spoofs"]}')
         if self.risk.circuit_breaker.in_cooldown(): print('  *** CIRCUIT BREAKER ACTIVE ***')
         print('='*75); print('  Press Ctrl+C to stop\n')

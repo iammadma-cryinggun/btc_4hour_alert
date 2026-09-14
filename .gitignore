@@ -37,3 +37,4 @@ docs/notes/
 
 # Claude project settings (not needed on GitHub)
 .claude/
+fix_dashboard.py
