@@ -7,11 +7,11 @@ Tony 交易哲学 · 盘口微观流动性动量突破系统
 """
 
 # ── 交易所 & 交易对 ──
-SYMBOL = "btcusdt"
+SYMBOL = "BTCUSDT"
 EXCHANGE = "binance"
 
 # ── API 端点 ──
-API_BASE = "https://api.binance.me/api/v3"
+API_BASE = "https://api.binance.com/api/v3"
 
 # ── 订单簿深度级别 ──
 OBI_DEPTH_LEVELS = [0, 1, 2, 3, 4]  # 0=最优买卖价, 1=第二档...
