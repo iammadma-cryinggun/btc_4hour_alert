@@ -59,11 +59,11 @@ class MicroApexSystem:
 
     def on_trade(self, trades):
         for i, trade in enumerate(trades):
-            qty = float(trade.get('q',0)); price = float(trade.get('p',0)); is_maker = trade.get('m',False)
-            ts = trade.get('T',time.time())/1000.0
+            qty = float(trade.get('qty',0)); price = float(trade.get('price',0)); is_maker = trade.get('isBuyerMaker',False)
+            ts = trade.get('time',time.time())/1000.0
             self.cvd.add_trade(qty, is_maker, ts); self.iceberg.record_trade(price, qty, ts)
             self.stats['trades'] += 1
-        if trades: log_info('trade_processed', count=len(trades), first_qty=str(trades[0].get('q','MISSING')), first_m=str(trades[0].get('m','MISSING')), first_T=str(trades[0].get('T','MISSING')))
+        if trades: log_info('trade_processed', count=len(trades), first_qty=str(trades[0].get('qty',0)), first_m=str(trades[0].get('isBuyerMaker',None)), first_T=str(trades[0].get('time',None)))
 
     def check_signals(self):
         obi, obi_ma, obi_t = self.obi.get_obi(), self.obi.get_obi_moving_avg(), self.obi.get_obi_trend()
