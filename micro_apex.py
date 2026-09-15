@@ -73,9 +73,9 @@ class MicroApexSystem:
         bids = self.obi.last_depth[0] if self.obi.last_depth else []
         asks = self.obi.last_depth[1] if self.obi.last_depth else []
         sigs = []
-        if self.buy_dom and cb and obi > OBI_THRESHOLD_LONG and cr > 0.55:
+        if self.buy_dom and cb and obi > OBI_THRESHOLD_LONG and cr > 0.55 and self.trend.is_trend_valid('long'):
             sigs.append({'type':'LONG_BREAKOUT','confidence':round(min((obi+cr)/2,1.0),4),'obi':round(obi,4),'obi_ma':round(obi_ma,4),'cvd_ratio':round(cr,4),'obi_trend':obi_t,'ts':datetime.now(timezone.utc).isoformat()})
-        if self.sell_dom and cs and obi < OBI_THRESHOLD_SHORT and cr < 0.45:
+        if self.sell_dom and cs and obi < OBI_THRESHOLD_SHORT and cr < 0.45 and self.trend.is_trend_valid('short'):
             sigs.append({'type':'SHORT_BREAKOUT','confidence':round(min((-obi+(1-cr))/2,1.0),4),'obi':round(obi,4),'obi_ma':round(obi_ma,4),'cvd_ratio':round(cr,4),'obi_trend':obi_t,'ts':datetime.now(timezone.utc).isoformat()})
         for fw in self.spoof.detect_fake_walls(bids, asks):
             if fw['likely_spoof']:

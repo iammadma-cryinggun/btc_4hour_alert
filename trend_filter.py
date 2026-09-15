@@ -8,8 +8,8 @@ API_BASE = 'https://api.binance.com/api/v3'
 
 class TrendFilter:
     def __init__(self):
-        self.h1_klines = deque(maxlen=100)
-        self.h4_klines = deque(maxlen=100)
+        self.h1_klines = deque(maxlen=TREND_EMA_LONG)
+        self.h4_klines = deque(maxlen=TREND_EMA_LONG)
         self.last_h1_trend = 'unknown'
         self.last_h4_trend = 'unknown'
         self.trend_confirm_count = 0
