@@ -58,11 +58,12 @@ class MicroApexSystem:
             if fw['likely_spoof']: self.stats['spoofs'] += 1
 
     def on_trade(self, trades):
-        for trade in trades:
+        for i, trade in enumerate(trades):
             qty = float(trade.get('q',0)); price = float(trade.get('p',0)); is_maker = trade.get('m',False)
             ts = trade.get('T',time.time())/1000.0
             self.cvd.add_trade(qty, is_maker, ts); self.iceberg.record_trade(price, qty, ts)
             self.stats['trades'] += 1
+        if trades: log_info('trade_processed', count=len(trades), first_qty=str(trades[0].get('q','MISSING')), first_m=str(trades[0].get('m','MISSING')), first_T=str(trades[0].get('T','MISSING')))
 
     def check_signals(self):
         obi, obi_ma, obi_t = self.obi.get_obi(), self.obi.get_obi_moving_avg(), self.obi.get_obi_trend()
@@ -102,6 +103,8 @@ class MicroApexSystem:
                 now = time.time()
                 if now - last_trend >= 30:
                     self.trend.update_trends()
+                    ti = self.trend.get_trend_info()
+                    log_info('trend_update', h1_klines=ti['h1_klines'], h4_klines=ti['h4_klines'], h1=ti['h1_trend'], h4=ti['h4_trend'])
                     last_trend = now
                 bids, asks = self.fetch_depth()
                 if bids and asks: self.on_depth(bids, asks)
