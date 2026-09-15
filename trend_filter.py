@@ -4,7 +4,7 @@ from collections import deque
 import requests
 from config import SYMBOL, TREND_EMA_FAST, TREND_EMA_SLOW, TREND_EMA_LONG, TREND_CONFIRM_BARS
 
-API_BASE = 'https://api.binance.me/api/v3'
+API_BASE = 'https://api.binance.com/api/v3'
 
 class TrendFilter:
     def __init__(self):

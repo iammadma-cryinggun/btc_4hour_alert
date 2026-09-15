@@ -96,14 +96,18 @@ class MicroApexSystem:
 
     def run(self):
         log_info("Micro-Apex starting", symbol=SYMBOL.upper(), project="D Drive Project")
-        last_dash, last_trade = 0, 0
+        last_dash, last_trade, last_trend = 0, 0, 0
         try:
             while True:
                 now = time.time()
+                if now - last_trend >= 30:
+                    self.trend.update_trends()
+                    last_trend = now
                 bids, asks = self.fetch_depth()
                 if bids and asks: self.on_depth(bids, asks)
                 if now - last_trade >= POLL_INTERVAL_SECONDS*3:
                     trades = self.fetch_trades(50)
+                    log_info("trade_fetch", count=len(trades))
                     if trades: self.on_trade(trades)
                     last_trade = now
                 new_signals = self.check_signals()

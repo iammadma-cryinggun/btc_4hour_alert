@@ -36,6 +36,6 @@ class CVDEngine:
     def get_trade_flow_stats(self, seconds=30):
         cutoff = time.time() - seconds
         buy_qty = sum(qty for ts,qty,m in self.trade_log if ts>=cutoff and not m)
-        sell_qty = sum(qty for ts,qty,m in self.trade_log if ts>=cutup and m)
+        sell_qty = sum(qty for ts,qty,m in self.trade_log if ts>=cutoff and m)
         total = buy_qty + sell_qty
         return {'buy_qty':buy_qty,'sell_qty':sell_qty,'buy_ratio':buy_qty/total if total>0 else 0.5}
